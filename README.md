@@ -38,6 +38,42 @@ You can also download multiple albums: `go run . album 1234 2345 3456`.
 
 You can also download multiple playlists in one command: `go run . playlist 1234 2345`.
 
+## Chrome Extension
+
+A Chrome extension is available for downloading albums and playlists directly from the browser. It automatically captures the `license_token` from Deezer network requests, so you don't need to find it manually.
+
+### Server mode
+
+Start the local API server that the extension communicates with:
+
+```bash
+go build -o deezer-downloader .
+./deezer-downloader --server       # default port 8080
+./deezer-downloader --server 9090  # custom port
+```
+
+The `license_token` in `config.toml` can be left empty — the extension will capture it automatically and send it with each request. If a token is present in `config.toml`, it will be used as a fallback.
+
+### Installing the extension
+
+1. Go to `chrome://extensions/`
+2. Enable **Developer mode**
+3. Click **Load unpacked** and select the `chrome-extension/` directory
+
+Works on Chrome 88+, Chromium, Edge, Brave, and Vivaldi.
+
+### How to use
+
+1. Navigate to a Deezer album or playlist page
+2. Click the extension icon — the ID is extracted automatically from the URL
+3. Click **Download**
+
+The extension settings panel lets you refresh the license token and configure the server URL.
+
+### Internationalization
+
+The extension UI is available in English and French. The language is selected automatically based on the browser's locale.
+
 ## Note
 
-Recent additions to this repository have been made with the help of an AI assistant (Copilot).
+Recent additions to this repository have been made with the help of an AI assistant (Copilot/Claude).

@@ -60,6 +60,9 @@ func printUsage() {
 	log.Println("To download one or more playlists:")
 	log.Println("\tdeezer-music-download playlist <playlist_id> [<playlist_id>...]")
 	log.Println("")
+	log.Println("To start API server for Chrome extension:")
+	log.Println("\tdeezer-music-download --server [port]")
+	log.Println("")
 	log.Println("See README for full details.")
 }
 
@@ -67,12 +70,35 @@ func main() {
 	var err error
 	log.SetFlags(0)
 
-	if len(os.Args) < 3 {
+	if len(os.Args) < 2 {
 		printUsage()
 		return
 	}
 
 	command := os.Args[1]
+
+	config, err := getConfig()
+	if err != nil {
+		log.Fatalf("error reading config file: %s\n", err)
+	}
+
+	// Check for server mode
+	if command == "--server" {
+		port := "8080"
+		if len(os.Args) > 2 {
+			port = os.Args[2]
+		}
+		log.Printf("Starting API server on port %s for Chrome extension usage", port)
+		StartServer(port, config)
+		return
+	}
+
+	// CLI mode
+	if len(os.Args) < 3 {
+		printUsage()
+		return
+	}
+
 	args := os.Args[2:]
 
 	logFilePath := os.TempDir() + "/deezer-music-download.log"
@@ -81,11 +107,6 @@ func main() {
 		log.Fatalf("error creating log file %s: %s\n", logFilePath, err)
 	}
 	defer logFile.Close()
-
-	config, err := getConfig()
-	if err != nil {
-		log.Fatalf("error reading config file: %s\n", err)
-	}
 
 	switch command {
 	case "album":
