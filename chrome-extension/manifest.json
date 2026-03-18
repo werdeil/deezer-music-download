@@ -6,7 +6,6 @@
   "default_locale": "en",
   "permissions": [
     "webRequest",
-    "webRequestBlocking",
     "tabs",
     "scripting",
     "storage",
