@@ -245,7 +245,11 @@ func getPlaylistSongs(playlistId string, config configuration) (resTracks, error
 			bstr = bstr[:200] + "..."
 		}
 		log.Printf("non-200 playlist page body (truncated): %s", bstr)
-		return resTracks{}, fmt.Errorf("got status code %d", res.StatusCode)
+
+		if res.StatusCode == 404 {
+			return resTracks{}, fmt.Errorf("Playlist not found - it may be private or deleted")
+		}
+		return resTracks{}, fmt.Errorf("HTTP %d - Failed to access playlist", res.StatusCode)
 	}
 
 	bytesBody, _ := io.ReadAll(res.Body)
