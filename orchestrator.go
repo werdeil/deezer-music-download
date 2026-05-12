@@ -49,7 +49,7 @@ album_loop:
 				if errTry != nil {
 					continue
 				}
-				songUrlTry, errTry2 := getSongUrl(songUrlDataTry)
+				songUrlTry, errTry2 := getSongUrl(songUrlDataTry, f)
 				if errTry2 != nil {
 					continue
 				}
@@ -142,7 +142,7 @@ playlist_loop:
 				if errTry != nil {
 					continue
 				}
-				songUrlTry, errTry2 := getSongUrl(songUrlDataTry)
+				songUrlTry, errTry2 := getSongUrl(songUrlDataTry, f)
 				if errTry2 != nil {
 					continue
 				}

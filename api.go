@@ -493,15 +493,36 @@ func getPing(config configuration) (resPing, error) {
 	return ping, err
 }
 
-func getSongUrl(songUrlData resSongUrl) (string, error) {
+func getSongUrl(songUrlData resSongUrl, format string) (string, error) {
 	if len(songUrlData.Data) == 0 || len(songUrlData.Data[0].Media) == 0 {
 		return "", errors.New("no media available in songUrlData")
 	}
 	sources := songUrlData.Data[0].Media[0].Sources
+	var url string
 	for _, source := range sources {
 		if source.Provider == "ak" {
-			return source.Url, nil
+			url = source.Url
+			break
 		}
 	}
-	return sources[0].Url, nil
+	if url == "" {
+		url = sources[0].Url
+	}
+	// If the URL doesn't start with http, it's likely a hash, construct the full URL
+	if !strings.HasPrefix(url, "http") {
+		// For Deezer streams, the URL is constructed as https://cdns-preview-d.dzcdn.net/stream/c-{first_char % 10}/{hash}-{quality}.{ext}
+		firstChar := int(url[0])
+		cNum := firstChar % 10
+		var quality string
+		var ext string
+		if strings.HasPrefix(format, "FLAC") {
+			quality = "9"
+			ext = "flac"
+		} else {
+			quality = "3"
+			ext = "mp3"
+		}
+		url = fmt.Sprintf("https://cdns-preview-d.dzcdn.net/stream/c-%d/%s-%s.%s", cNum, url, quality, ext)
+	}
+	return url, nil
 }

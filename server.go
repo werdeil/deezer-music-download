@@ -178,7 +178,7 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 		if err != nil {
 			continue
 		}
-		songUrlTry, err := getSongUrl(songUrlData)
+		songUrlTry, err := getSongUrl(songUrlData, f)
 		if err != nil {
 			continue
 		}
@@ -248,7 +248,7 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 		if err != nil {
 			continue
 		}
-		songUrlTry, err := getSongUrl(songUrlData)
+		songUrlTry, err := getSongUrl(songUrlData, f)
 		if err != nil {
 			continue
 		}
