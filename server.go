@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 )
@@ -100,16 +101,20 @@ func handleDownloadAlbum(w http.ResponseWriter, r *http.Request, config configur
 	}
 
 	// Download all tracks
+	total := len(albumSongs.Songs.Data)
+	log.Printf("Downloading album: %s (%d tracks)", album.Title, total)
 	downloadCount := 0
-	for _, song := range albumSongs.Songs.Data {
+	for i, song := range albumSongs.Songs.Data {
+		log.Printf("[%02d/%02d] %s - %s", i+1, total, album.Title, song.SngTitle)
 		if err := downloadSingleTrackFromSong(song, album, tempConfig); err != nil {
-			log.Printf("Failed to download track %s: %v", song.SngTitle, err)
+			log.Printf("Failed: %v", err)
 			continue
 		}
 		downloadCount++
 	}
 
-	message := fmt.Sprintf("Downloaded %d tracks from album: %s", downloadCount, album.Title)
+	message := fmt.Sprintf("Downloaded %d/%d tracks from album: %s", downloadCount, total, album.Title)
+	log.Print(message)
 	respondWithSuccess(w, message)
 }
 
@@ -154,16 +159,20 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 	}
 
 	// Download all tracks
+	total := len(playlistSongs.Data)
+	log.Printf("Downloading playlist: %s (%d tracks)", playlist.Title, total)
 	downloadCount := 0
-	for _, track := range playlistSongs.Data {
+	for i, track := range playlistSongs.Data {
+		log.Printf("[%02d/%02d] %s", i+1, total, track.Title)
 		if err := downloadSingleTrackFromPlaylist(track, tempConfig); err != nil {
-			log.Printf("Failed to download track %s: %v", track.Title, err)
+			log.Printf("Failed: %v", err)
 			continue
 		}
 		downloadCount++
 	}
 
-	message := fmt.Sprintf("Downloaded %d tracks from playlist: %s", downloadCount, playlist.Title)
+	message := fmt.Sprintf("Downloaded %d/%d tracks from playlist: %s", downloadCount, total, playlist.Title)
+	log.Print(message)
 	respondWithSuccess(w, message)
 }
 
@@ -173,13 +182,16 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 	var selectedFormat string
 	var songUrl string
 
+	var lastErr error
 	for _, f := range formats {
 		songUrlData, err := getSongUrlData(song.TrackToken, f, config)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		songUrlTry, err := getSongUrl(songUrlData, f)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		selectedFormat = f
@@ -188,7 +200,7 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 	}
 
 	if selectedFormat == "" {
-		return fmt.Errorf("no available formats for track %s", song.SngTitle)
+		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, lastErr)
 	}
 
 	// Build file path
@@ -202,10 +214,11 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 	}
 
 	// Download song
-	err = downloadSong(songUrl, songPath, song.SngId, 0, config)
+	bytesWritten, err := downloadSong(songUrl, songPath, song.SngId, 0, config)
 	if err != nil {
 		return err
 	}
+	log.Printf("  → %s (Wrote %d bytes: %s)", selectedFormat, bytesWritten, songPath)
 
 	// Add tags
 	if strings.ToUpper(selectedFormat) == "FLAC" {
@@ -214,9 +227,10 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 			log.Printf("Warning: failed to add tags: %v", err)
 		}
 		coverFilePath := songDir + "/cover.jpg"
-		err = addCover(songPath, coverFilePath)
-		if err != nil {
-			log.Printf("Warning: failed to add cover: %v", err)
+		if _, statErr := os.Stat(coverFilePath); statErr == nil {
+			if err = addCover(songPath, coverFilePath); err != nil {
+				log.Printf("Warning: failed to add cover: %v", err)
+			}
 		}
 	} else {
 		coverFilePath := songDir + "/cover.jpg"
@@ -243,13 +257,16 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 	var selectedFormat string
 	var songUrl string
 
+	var lastErr error
 	for _, f := range formats {
 		songUrlData, err := getSongUrlData(song.TrackToken, f, config)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		songUrlTry, err := getSongUrl(songUrlData, f)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		selectedFormat = f
@@ -258,7 +275,7 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 	}
 
 	if selectedFormat == "" {
-		return fmt.Errorf("no available formats for track %s", song.SngTitle)
+		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, lastErr)
 	}
 
 	// Build file path
@@ -278,18 +295,20 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 	}
 
 	// Download song
-	err = downloadSong(songUrl, filePath, song.SngId, 0, config)
+	bytesWritten, err := downloadSong(songUrl, filePath, song.SngId, 0, config)
 	if err != nil {
 		return err
 	}
+	log.Printf("  → %s (Wrote %d bytes: %s)", selectedFormat, bytesWritten, filePath)
 
 	// Add tags
 	songDir := path.Dir(filePath)
 	if strings.ToUpper(selectedFormat) == "FLAC" {
 		coverFilePath := songDir + "/cover.jpg"
-		err = addCover(filePath, coverFilePath)
-		if err != nil {
-			log.Printf("Warning: failed to add cover: %v", err)
+		if _, statErr := os.Stat(coverFilePath); statErr == nil {
+			if err = addCover(filePath, coverFilePath); err != nil {
+				log.Printf("Warning: failed to add cover: %v", err)
+			}
 		}
 	}
 

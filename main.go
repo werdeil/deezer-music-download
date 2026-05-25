@@ -63,12 +63,21 @@ func printUsage() {
 	log.Println("To start API server for Chrome extension:")
 	log.Println("\tdeezer-music-download --server [port]")
 	log.Println("")
+	log.Println("Add --timestamps to prefix all log lines with date and time.")
+	log.Println("")
 	log.Println("See README for full details.")
 }
 
 func main() {
 	var err error
 	log.SetFlags(0)
+	for i, arg := range os.Args {
+		if arg == "--timestamps" {
+			log.SetFlags(log.LstdFlags)
+			os.Args = append(os.Args[:i], os.Args[i+1:]...)
+			break
+		}
+	}
 
 	if len(os.Args) < 2 {
 		printUsage()

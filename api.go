@@ -443,13 +443,17 @@ func getSongUrlData(trackToken string, format string, config configuration) (res
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		bytes, _ := io.ReadAll(res.Body)
-		bstr := string(bytes)
-		if len(bstr) > 200 {
-			bstr = bstr[:200] + "..."
+		bodyBytes, _ := io.ReadAll(res.Body)
+		var errBody struct {
+			Errors []struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"errors"`
 		}
-		log.Printf("non-200 get_url response (truncated): %s", bstr)
-		return resSongUrl{}, fmt.Errorf("got status code %d", res.StatusCode)
+		if json.Unmarshal(bodyBytes, &errBody) == nil && len(errBody.Errors) > 0 {
+			return resSongUrl{}, fmt.Errorf("error %d: %s", errBody.Errors[0].Code, errBody.Errors[0].Message)
+		}
+		return resSongUrl{}, fmt.Errorf("HTTP %d", res.StatusCode)
 	}
 
 	var songUrlData resSongUrl

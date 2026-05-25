@@ -44,13 +44,16 @@ album_loop:
 			formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
 			var selectedFormat string
 			var songUrl string
+			var lastErr error
 			for _, f := range formats {
 				songUrlDataTry, errTry := getSongUrlData(song.TrackToken, f, config)
 				if errTry != nil {
+					lastErr = errTry
 					continue
 				}
 				songUrlTry, errTry2 := getSongUrl(songUrlDataTry, f)
 				if errTry2 != nil {
+					lastErr = errTry2
 					continue
 				}
 				selectedFormat = f
@@ -59,8 +62,8 @@ album_loop:
 			}
 
 			if selectedFormat == "" {
-				msg := fmt.Sprintf("error getting URL for song \"%s\" by %s from \"%s\": no available formats\n",
-					song.SngTitle, song.ArtName, song.AlbTitle)
+				msg := fmt.Sprintf("error getting URL for song \"%s\" by %s from \"%s\": %v\n",
+					song.SngTitle, song.ArtName, song.AlbTitle, lastErr)
 				log.Print(msg)
 				logFile.Write([]byte(msg))
 				log.Print("Album download failed: " + albumId + "\n\n")
@@ -76,10 +79,12 @@ album_loop:
 			if err != nil {
 				log.Fatalf("error preparing directory for song: %s\n", err)
 			}
-			err = downloadSong(songUrl, songPath, song.SngId, 0, config)
+			var bytesWritten int64
+			bytesWritten, err = downloadSong(songUrl, songPath, song.SngId, 0, config)
 			if err != nil {
 				log.Fatalf("error downloading song: %s\n", err)
 			}
+			log.Printf("Wrote %d bytes: %s", bytesWritten, songPath)
 
 			if strings.ToUpper(selectedFormat) == "FLAC" {
 				err = addTags(song, songPath, album)
@@ -137,13 +142,16 @@ playlist_loop:
 			formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
 			var selectedFormat string
 			var songUrl string
+			var lastErr error
 			for _, f := range formats {
 				songUrlDataTry, errTry := getSongUrlData(song.TrackToken, f, config)
 				if errTry != nil {
+					lastErr = errTry
 					continue
 				}
 				songUrlTry, errTry2 := getSongUrl(songUrlDataTry, f)
 				if errTry2 != nil {
+					lastErr = errTry2
 					continue
 				}
 				selectedFormat = f
@@ -152,8 +160,8 @@ playlist_loop:
 			}
 
 			if selectedFormat == "" {
-				msg := fmt.Sprintf("error getting URL for song \"%s\" by %s from \"%s\": no available formats\n",
-					song.SngTitle, song.ArtName, song.AlbTitle)
+				msg := fmt.Sprintf("error getting URL for song \"%s\" by %s from \"%s\": %v\n",
+					song.SngTitle, song.ArtName, song.AlbTitle, lastErr)
 				log.Print(msg)
 				logFile.Write([]byte(msg))
 				log.Print("Playlist download failed: " + playlistId + "\n\n")
@@ -169,10 +177,12 @@ playlist_loop:
 			if err != nil {
 				log.Fatalf("error preparing directory for song: %s\n", err)
 			}
-			err = downloadSong(songUrl, songPath, song.SngId, 0, config)
+			var bytesWritten int64
+			bytesWritten, err = downloadSong(songUrl, songPath, song.SngId, 0, config)
 			if err != nil {
 				log.Fatalf("error downloading song: %s\n", err)
 			}
+			log.Printf("Wrote %d bytes: %s", bytesWritten, songPath)
 
 			if strings.ToUpper(selectedFormat) == "FLAC" {
 				err = addTags(song, songPath, album)

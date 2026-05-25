@@ -81,22 +81,22 @@ func ensureSongDirectoryExists(songPath string, coverUrl string) error {
 	return nil
 }
 
-func downloadSong(url string, songPath string, songId string, attempt int, config configuration) error {
+func downloadSong(url string, songPath string, songId string, attempt int, config configuration) (int64, error) {
 	var err error
 
 	if attempt >= 10 {
-		return fmt.Errorf("giving up downloading song after %d attempts\n", attempt)
+		return 0, fmt.Errorf("giving up downloading song after %d attempts\n", attempt)
 	}
 
 	f, err := os.Create(songPath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer f.Close()
 
 	res, err := makeReq("GET", url, nil, config)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer res.Body.Close()
 
@@ -107,7 +107,7 @@ func downloadSong(url string, songPath string, songId string, attempt int, confi
 			bstr = bstr[:200] + "..."
 		}
 		log.Printf("non-200 download response (truncated): %s", bstr)
-		return fmt.Errorf("got status code %d", res.StatusCode)
+		return 0, fmt.Errorf("got status code %d", res.StatusCode)
 	}
 
 	bfKey := calcBfKey([]byte(songId), config)
@@ -148,7 +148,7 @@ outer_loop:
 		if isEncrypted && isWholeBlock {
 			decBuf, err := blowfishDecrypt(buf, bfKey, config)
 			if err != nil {
-				return fmt.Errorf("error decrypting: %s\n", err)
+				return 0, fmt.Errorf("error decrypting: %s\n", err)
 			}
 			f.Write(decBuf)
 		} else {
@@ -158,7 +158,5 @@ outer_loop:
 		i += 1
 	}
 
-	log.Printf("Wrote %d bytes: %s", totalBytes, songPath)
-
-	return nil
+	return int64(totalBytes), nil
 }
