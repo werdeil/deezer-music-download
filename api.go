@@ -59,7 +59,13 @@ func getSongInfo(id int64, config configuration) (resSongInfo, error) {
 	startMarker := `window.__DZR_APP_STATE__ = `
 	endMarker := `</script>`
 	startIdx := strings.Index(s, startMarker)
+	if startIdx < 0 {
+		return resSongInfo{}, fmt.Errorf("could not find app state in track page for id %d", id)
+	}
 	endIdx := strings.Index(s[startIdx:], endMarker)
+	if endIdx < 0 {
+		return resSongInfo{}, fmt.Errorf("could not find script end in track page for id %d", id)
+	}
 	sData := s[startIdx+len(startMarker) : startIdx+endIdx]
 
 	var songInfo resSongInfo
@@ -115,7 +121,13 @@ func getAlbumSongs(albumId string, config configuration) (resAlbumInfo, error) {
 	startMarker := `window.__DZR_APP_STATE__ = `
 	endMarker := `</script>`
 	startIdx := strings.Index(s, startMarker)
+	if startIdx < 0 {
+		return resAlbumInfo{}, fmt.Errorf("could not find app state in album page for id %s", albumId)
+	}
 	endIdx := strings.Index(s[startIdx:], endMarker)
+	if endIdx < 0 {
+		return resAlbumInfo{}, fmt.Errorf("could not find script end in album page for id %s", albumId)
+	}
 	sData := s[startIdx+len(startMarker) : startIdx+endIdx]
 
 	var albumInfo resAlbumInfo

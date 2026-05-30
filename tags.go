@@ -10,20 +10,22 @@ import (
 	"github.com/go-flac/go-flac"
 )
 
-func extractFlacComment(f *flac.File) (*flacvorbis.MetaDataBlockVorbisComment, int, error) {
+func extractFlacComment(f *flac.File) (*flacvorbis.MetaDataBlockVorbisComment, int, bool, error) {
 	var err error
 	var cmt *flacvorbis.MetaDataBlockVorbisComment
 	var cmtIdx int
+	found := false
 	for idx, meta := range f.Meta {
 		if meta.Type == flac.VorbisComment {
 			cmt, err = flacvorbis.ParseFromMetaDataBlock(*meta)
 			cmtIdx = idx
+			found = true
 			if err != nil {
-				return nil, 0, err
+				return nil, 0, false, err
 			}
 		}
 	}
-	return cmt, cmtIdx, nil
+	return cmt, cmtIdx, found, nil
 }
 
 func addCover(songPath string, coverPath string) error {
@@ -137,11 +139,11 @@ func addTags(song resSongInfoData, path string, album resAlbum) error {
 		return err
 	}
 
-	cmts, idx, err := extractFlacComment(f)
+	cmts, idx, found, err := extractFlacComment(f)
 	if err != nil {
 		return err
 	}
-	if cmts == nil && idx > 0 {
+	if cmts == nil {
 		cmts = flacvorbis.New()
 	}
 
@@ -181,7 +183,7 @@ func addTags(song resSongInfoData, path string, album resAlbum) error {
 	}
 	cmts.Add("ISRC", song.Isrc)
 	cmtsmeta := cmts.Marshal()
-	if idx > 0 {
+	if found {
 		f.Meta[idx] = &cmtsmeta
 	} else {
 		f.Meta = append(f.Meta, &cmtsmeta)

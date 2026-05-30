@@ -102,7 +102,11 @@ func main() {
 		return
 	}
 
-	// CLI mode
+	// CLI mode requires license_token
+	if len(config.LicenseToken) == 0 {
+		log.Fatalf("error reading config file: please provide a value for the 'license_token' field in the config file\n")
+	}
+
 	if len(os.Args) < 3 {
 		printUsage()
 		return

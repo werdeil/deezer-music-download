@@ -252,6 +252,13 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 
 	song := songInfo.Data
 
+	// Get album metadata for tagging
+	album, err := getAlbum(song.AlbId, config)
+	if err != nil {
+		log.Printf("Warning: failed to get album info for %s, tags will be incomplete: %v", song.SngTitle, err)
+		album = resAlbum{}
+	}
+
 	// Try multiple formats
 	formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
 	var selectedFormat string
@@ -278,37 +285,46 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, lastErr)
 	}
 
-	// Build file path
-	artistDir := getSafeFilename(song.ArtName)
-	albumDir := getSafeFilename(song.AlbTitle)
-	trackNum := song.TrackNumber
-	trackTitle := getSafeFilename(song.SngTitle)
-	extMap := map[string]string{"FLAC": "flac", "MP3_320": "mp3", "MP3_256": "mp3", "MP3_128": "mp3"}
-	ext := extMap[strings.ToUpper(selectedFormat)]
-	fileName := trackNum + " - " + trackTitle + "." + ext
-	filePath := config.DestDir + "/" + artistDir + "/" + albumDir + "/" + fileName
+	// Build file path using getSongPath for consistency with album downloads
+	songPath := getSongPath(song, album, config, selectedFormat)
+	songDir := path.Dir(songPath)
+
+	// Use album cover URL, fall back to song-level picture
+	coverUrl := album.CoverXl
+	if coverUrl == "" {
+		coverUrl = song.AlbPicture
+	}
 
 	// Ensure directory exists
-	err = ensureSongDirectoryExists(filePath, song.AlbPicture)
+	err = ensureSongDirectoryExists(songPath, coverUrl)
 	if err != nil {
 		return err
 	}
 
 	// Download song
-	bytesWritten, err := downloadSong(songUrl, filePath, song.SngId, 0, config)
+	bytesWritten, err := downloadSong(songUrl, songPath, song.SngId, 0, config)
 	if err != nil {
 		return err
 	}
-	log.Printf("  → %s (Wrote %d bytes: %s)", selectedFormat, bytesWritten, filePath)
+	log.Printf("  → %s (Wrote %d bytes: %s)", selectedFormat, bytesWritten, songPath)
 
 	// Add tags
-	songDir := path.Dir(filePath)
 	if strings.ToUpper(selectedFormat) == "FLAC" {
+		err = addTags(song, songPath, album)
+		if err != nil {
+			log.Printf("Warning: failed to add tags: %v", err)
+		}
 		coverFilePath := songDir + "/cover.jpg"
 		if _, statErr := os.Stat(coverFilePath); statErr == nil {
-			if err = addCover(filePath, coverFilePath); err != nil {
+			if err = addCover(songPath, coverFilePath); err != nil {
 				log.Printf("Warning: failed to add cover: %v", err)
 			}
+		}
+	} else {
+		coverFilePath := songDir + "/cover.jpg"
+		err = addID3Tags(song, songPath, coverFilePath, album)
+		if err != nil {
+			log.Printf("Warning: failed to add ID3 tags: %v", err)
 		}
 	}
 
@@ -329,14 +345,4 @@ func respondWithError(w http.ResponseWriter, errorMsg string, statusCode int) {
 		Success: false,
 		Error:   errorMsg,
 	})
-}
-
-// Helper function to get safe filename
-func getSafeFilename(name string) string {
-	unsafe := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
-	result := name
-	for _, char := range unsafe {
-		result = strings.ReplaceAll(result, char, "_")
-	}
-	return result
 }

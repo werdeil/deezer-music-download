@@ -28,9 +28,7 @@ func getConfig() (configuration, error) {
 	if len(config.Arl) == 0 {
 		return configuration{}, errors.New("please provide a value for the 'arl' field in the config file")
 	}
-	if len(config.LicenseToken) == 0 {
-		return configuration{}, errors.New("please provide a value for the 'license_token' field in the config file")
-	}
+	// license_token is optional here; in server mode it can be provided per-request by the Chrome extension.
 	if len(config.DestDir) == 0 {
 		return configuration{}, errors.New("please provide a value for the 'dest_dir' field in the config file")
 	}
