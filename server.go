@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path"
-	"strings"
 )
 
 // API Request/Response types
@@ -112,7 +109,7 @@ func handleDownloadAlbum(w http.ResponseWriter, r *http.Request, config configur
 	downloadCount := 0
 	for i, song := range albumSongs.Songs.Data {
 		log.Printf("[%02d/%02d] %s - %s", i+1, total, album.Title, song.SngTitle)
-		if err := downloadSingleTrackFromSong(song, album, tempConfig); err != nil {
+		if err := downloadTrack(song, album, tempConfig); err != nil {
 			log.Printf("Failed: %v", err)
 			continue
 		}
@@ -170,7 +167,7 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 	downloadCount := 0
 	for i, track := range playlistSongs.Data {
 		log.Printf("[%02d/%02d] %s", i+1, total, track.Title)
-		if err := downloadSingleTrackFromPlaylist(track, tempConfig); err != nil {
+		if err := downloadPlaylistTrack(track, tempConfig); err != nil {
 			log.Printf("Failed: %v", err)
 			continue
 		}
@@ -180,115 +177,6 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 	message := fmt.Sprintf("Downloaded %d/%d tracks from playlist: %s", downloadCount, total, playlist.Title)
 	log.Print(message)
 	respondWithSuccess(w, message)
-}
-
-func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config configuration) error {
-	// Try multiple formats
-	selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
-	if err != nil {
-		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, err)
-	}
-
-	// Build file path
-	songPath := getSongPath(song, album, config, selectedFormat)
-	songDir := path.Dir(songPath)
-
-	// Ensure directory exists
-	err = ensureSongDirectoryExists(songPath, coverURL(album, song))
-	if err != nil {
-		return err
-	}
-
-	// Download song
-	bytesWritten, err := downloadSong(songUrl, songPath, song.SngId, 0, config)
-	if err != nil {
-		return err
-	}
-	log.Printf("  → %s (Wrote %d bytes: %s)", selectedFormat, bytesWritten, songPath)
-
-	// Add tags
-	if strings.ToUpper(selectedFormat) == "FLAC" {
-		err = addTags(song, songPath, album)
-		if err != nil {
-			log.Printf("Warning: failed to add tags: %v", err)
-		}
-		coverFilePath := songDir + "/cover.jpg"
-		if _, statErr := os.Stat(coverFilePath); statErr == nil {
-			if err = addCover(songPath, coverFilePath); err != nil {
-				log.Printf("Warning: failed to add cover: %v", err)
-			}
-		}
-	} else {
-		coverFilePath := songDir + "/cover.jpg"
-		err = addID3Tags(song, songPath, coverFilePath, album)
-		if err != nil {
-			log.Printf("Warning: failed to add ID3 tags: %v", err)
-		}
-	}
-
-	return nil
-}
-
-func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error {
-	// Get full song info
-	songInfo, err := getSongInfo(track.Id, config)
-	if err != nil {
-		return fmt.Errorf("failed to get song info: %w", err)
-	}
-
-	song := songInfo.Data
-
-	// Get album metadata for tagging
-	album, err := getAlbum(song.AlbId, config)
-	if err != nil {
-		log.Printf("Warning: failed to get album info for %s, tags will be incomplete: %v", song.SngTitle, err)
-		album = resAlbum{}
-	}
-
-	// Try multiple formats
-	selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
-	if err != nil {
-		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, err)
-	}
-
-	// Build file path using getSongPath for consistency with album downloads
-	songPath := getSongPath(song, album, config, selectedFormat)
-	songDir := path.Dir(songPath)
-
-	// Ensure directory exists
-	err = ensureSongDirectoryExists(songPath, coverURL(album, song))
-	if err != nil {
-		return err
-	}
-
-	// Download song
-	bytesWritten, err := downloadSong(songUrl, songPath, song.SngId, 0, config)
-	if err != nil {
-		return err
-	}
-	log.Printf("  → %s (Wrote %d bytes: %s)", selectedFormat, bytesWritten, songPath)
-
-	// Add tags
-	if strings.ToUpper(selectedFormat) == "FLAC" {
-		err = addTags(song, songPath, album)
-		if err != nil {
-			log.Printf("Warning: failed to add tags: %v", err)
-		}
-		coverFilePath := songDir + "/cover.jpg"
-		if _, statErr := os.Stat(coverFilePath); statErr == nil {
-			if err = addCover(songPath, coverFilePath); err != nil {
-				log.Printf("Warning: failed to add cover: %v", err)
-			}
-		}
-	} else {
-		coverFilePath := songDir + "/cover.jpg"
-		err = addID3Tags(song, songPath, coverFilePath, album)
-		if err != nil {
-			log.Printf("Warning: failed to add ID3 tags: %v", err)
-		}
-	}
-
-	return nil
 }
 
 func respondWithSuccess(w http.ResponseWriter, message string) {
