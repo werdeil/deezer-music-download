@@ -3,7 +3,7 @@
 A program to freely download Deezer Audio files. Tested and working in December 2025.
 Verified to produce the same audio as other downloaders being used for files present on the internet. A paid Deezer account is required.
  
-Note: The tool will now automatically fall back to downloading MP3 files when the FLAC format is not available for a given track. In that case the downloader will try `FLAC` first, then `MP3_320`, `MP3_256`, and finally `MP3_128`. 
+Note: The tool will now automatically fall back to downloading MP3 files when the FLAC format is not available for a given track. In that case the downloader will try `FLAC` first, then `MP3_320`, and finally `MP3_128`. 
 
 The program downloads cover art and metadata tags: for MP3s it writes ID3v2 tags and embeds the cover image into the MP3 file, and for FLACs it embeds the cover art and metadata.
 

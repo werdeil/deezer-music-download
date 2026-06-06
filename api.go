@@ -445,6 +445,45 @@ func getPlaylistSongs(playlistId string, config configuration) (resTracks, error
 	return resTracks{Data: tracks, Total: len(tracks)}, nil
 }
 
+// resolveSongUrl tries each format in order of preference and returns the first
+// one that yields a usable stream URL. If every format fails, it returns an
+// aggregated error listing what went wrong for each format, so the caller can
+// see that all formats were attempted rather than just the last one.
+func resolveSongUrl(trackToken string, config configuration) (selectedFormat string, songUrl string, err error) {
+	// MP3_256 is intentionally omitted: it is not a tier Deezer serves, so it
+	// always returns error 1002 (token has no rights) regardless of the track.
+	formats := []string{"FLAC", "MP3_320", "MP3_128"}
+	// Group attempted formats by the error they returned so identical errors
+	// (e.g. "no media available" for several formats) are reported only once.
+	errToFormats := map[string][]string{}
+	var errOrder []string
+	recordErr := func(f string, e error) {
+		msg := e.Error()
+		if _, seen := errToFormats[msg]; !seen {
+			errOrder = append(errOrder, msg)
+		}
+		errToFormats[msg] = append(errToFormats[msg], f)
+	}
+	for _, f := range formats {
+		songUrlData, errTry := getSongUrlData(trackToken, f, config)
+		if errTry != nil {
+			recordErr(f, errTry)
+			continue
+		}
+		url, errTry := getSongUrl(songUrlData, f)
+		if errTry != nil {
+			recordErr(f, errTry)
+			continue
+		}
+		return f, url, nil
+	}
+	var parts []string
+	for _, msg := range errOrder {
+		parts = append(parts, fmt.Sprintf("%s: %s", strings.Join(errToFormats[msg], "/"), msg))
+	}
+	return "", "", fmt.Errorf("no playable format (%s)", strings.Join(parts, "; "))
+}
+
 func getSongUrlData(trackToken string, format string, config configuration) (resSongUrl, error) {
 	url := "https://media.deezer.com/v1/get_url"
 	bodyJsonStr := fmt.Sprintf(`{"license_token":"%s","media":[{"type":"FULL","formats":[{"cipher":"BF_CBC_STRIPE","format":"%s"}]}],"track_tokens":["%s"]}`, config.LicenseToken, format, trackToken)
@@ -481,7 +520,7 @@ func getSongUrlData(trackToken string, format string, config configuration) (res
 
 	// If Data exists but Media is empty, treat it as "format not available"
 	if len(songUrlData.Data[0].Media) == 0 {
-		return resSongUrl{}, fmt.Errorf("no media available for requested format %s", format)
+		return resSongUrl{}, fmt.Errorf("no media available")
 	}
 	return songUrlData, err
 }

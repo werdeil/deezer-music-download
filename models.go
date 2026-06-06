@@ -141,7 +141,6 @@ type resSongInfoData struct {
 	FilesizeAac64        string                          `json:"FILESIZE_AAC_64"`
 	FilesizeMp364        string                          `json:"FILESIZE_MP3_64"`
 	FilesizeMp3128       string                          `json:"FILESIZE_MP3_128"`
-	FilesizeMp3256       string                          `json:"FILESIZE_MP3_256"`
 	FilesizeMp3320       string                          `json:"FILESIZE_MP3_320"`
 	FilesizeFlac         string                          `json:"FILESIZE_FLAC"`
 	Filesize             string                          `json:"FILESIZE"`

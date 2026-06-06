@@ -178,29 +178,9 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 
 func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config configuration) error {
 	// Try multiple formats
-	formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
-	var selectedFormat string
-	var songUrl string
-
-	var lastErr error
-	for _, f := range formats {
-		songUrlData, err := getSongUrlData(song.TrackToken, f, config)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		songUrlTry, err := getSongUrl(songUrlData, f)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		selectedFormat = f
-		songUrl = songUrlTry
-		break
-	}
-
-	if selectedFormat == "" {
-		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, lastErr)
+	selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
+	if err != nil {
+		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, err)
 	}
 
 	// Build file path
@@ -208,7 +188,7 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 	songDir := path.Dir(songPath)
 
 	// Ensure directory exists
-	err := ensureSongDirectoryExists(songPath, album.CoverXl)
+	err = ensureSongDirectoryExists(songPath, album.CoverXl)
 	if err != nil {
 		return err
 	}
@@ -260,29 +240,9 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 	}
 
 	// Try multiple formats
-	formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
-	var selectedFormat string
-	var songUrl string
-
-	var lastErr error
-	for _, f := range formats {
-		songUrlData, err := getSongUrlData(song.TrackToken, f, config)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		songUrlTry, err := getSongUrl(songUrlData, f)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		selectedFormat = f
-		songUrl = songUrlTry
-		break
-	}
-
-	if selectedFormat == "" {
-		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, lastErr)
+	selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
+	if err != nil {
+		return fmt.Errorf("no available formats for track %s (%v)", song.SngTitle, err)
 	}
 
 	// Build file path using getSongPath for consistency with album downloads

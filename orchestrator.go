@@ -41,29 +41,10 @@ album_loop:
 		}
 
 		for _, song := range albumInfo.Songs.Data {
-			formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
-			var selectedFormat string
-			var songUrl string
-			var lastErr error
-			for _, f := range formats {
-				songUrlDataTry, errTry := getSongUrlData(song.TrackToken, f, config)
-				if errTry != nil {
-					lastErr = errTry
-					continue
-				}
-				songUrlTry, errTry2 := getSongUrl(songUrlDataTry, f)
-				if errTry2 != nil {
-					lastErr = errTry2
-					continue
-				}
-				selectedFormat = f
-				songUrl = songUrlTry
-				break
-			}
-
-			if selectedFormat == "" {
+			selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
+			if err != nil {
 				msg := fmt.Sprintf("error getting URL for song \"%s\" by %s from \"%s\": %v\n",
-					song.SngTitle, song.ArtName, song.AlbTitle, lastErr)
+					song.SngTitle, song.ArtName, song.AlbTitle, err)
 				log.Print(msg)
 				logFile.Write([]byte(msg))
 				log.Print("Album download failed: " + albumId + "\n\n")
@@ -139,29 +120,10 @@ playlist_loop:
 				log.Fatalf("error getting album: %s\n", err)
 			}
 
-			formats := []string{"FLAC", "MP3_320", "MP3_256", "MP3_128"}
-			var selectedFormat string
-			var songUrl string
-			var lastErr error
-			for _, f := range formats {
-				songUrlDataTry, errTry := getSongUrlData(song.TrackToken, f, config)
-				if errTry != nil {
-					lastErr = errTry
-					continue
-				}
-				songUrlTry, errTry2 := getSongUrl(songUrlDataTry, f)
-				if errTry2 != nil {
-					lastErr = errTry2
-					continue
-				}
-				selectedFormat = f
-				songUrl = songUrlTry
-				break
-			}
-
-			if selectedFormat == "" {
+			selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
+			if err != nil {
 				msg := fmt.Sprintf("error getting URL for song \"%s\" by %s from \"%s\": %v\n",
-					song.SngTitle, song.ArtName, song.AlbTitle, lastErr)
+					song.SngTitle, song.ArtName, song.AlbTitle, err)
 				log.Print(msg)
 				logFile.Write([]byte(msg))
 				log.Print("Playlist download failed: " + playlistId + "\n\n")
