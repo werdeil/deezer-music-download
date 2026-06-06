@@ -8,6 +8,19 @@ import (
 	"strings"
 )
 
+// coverURL returns a usable album-cover URL: the public API cover_xl when
+// available, otherwise one rebuilt from the scraped ALB_PICTURE hash (the
+// public API may be missing, e.g. when getAlbum failed on a playlist track).
+func coverURL(album resAlbum, song resSongInfoData) string {
+	if album.CoverXl != "" {
+		return album.CoverXl
+	}
+	if song.AlbPicture != "" {
+		return fmt.Sprintf("https://cdn-images.dzcdn.net/images/cover/%s/1000x1000-000000-80-0-0.jpg", song.AlbPicture)
+	}
+	return ""
+}
+
 // computeNbDiscs returns the highest DISK_NUMBER found among the album's songs.
 // The public Deezer REST API does not expose nb_discs, so this is used as a
 // fallback to populate the disc-total tag (DISCTOTAL / "Part of a set").

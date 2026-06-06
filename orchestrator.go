@@ -43,7 +43,7 @@ album_loop:
 			songDir := path.Dir(songPath)
 			coverFilePath := songDir + "/cover.jpg"
 
-			err = ensureSongDirectoryExists(songPath, album.CoverXl)
+			err = ensureSongDirectoryExists(songPath, coverURL(album, song))
 			if err != nil {
 				log.Fatalf("error preparing directory for song: %s\n", err)
 			}
@@ -59,9 +59,10 @@ album_loop:
 				if err != nil {
 					log.Fatalf("error adding tags to song: %s\n", err)
 				}
-				err = addCover(songPath, coverFilePath)
-				if err != nil {
-					log.Fatalf("error adding cover image to song: %s\n", err)
+				if _, statErr := os.Stat(coverFilePath); statErr == nil {
+					if err = addCover(songPath, coverFilePath); err != nil {
+						log.Printf("Warning: failed to add cover image to song: %v", err)
+					}
 				}
 			} else {
 				err = addID3Tags(song, songPath, coverFilePath, album)
@@ -122,7 +123,7 @@ playlist_loop:
 			songDir := path.Dir(songPath)
 			coverFilePath := songDir + "/cover.jpg"
 
-			err = ensureSongDirectoryExists(songPath, album.CoverXl)
+			err = ensureSongDirectoryExists(songPath, coverURL(album, song))
 			if err != nil {
 				log.Fatalf("error preparing directory for song: %s\n", err)
 			}
@@ -138,9 +139,10 @@ playlist_loop:
 				if err != nil {
 					log.Fatalf("error adding tags to song: %s\n", err)
 				}
-				err = addCover(songPath, coverFilePath)
-				if err != nil {
-					log.Fatalf("error adding cover image to song: %s\n", err)
+				if _, statErr := os.Stat(coverFilePath); statErr == nil {
+					if err = addCover(songPath, coverFilePath); err != nil {
+						log.Printf("Warning: failed to add cover image to song: %v", err)
+					}
 				}
 			} else {
 				err = addID3Tags(song, songPath, coverFilePath, album)

@@ -194,7 +194,7 @@ func downloadSingleTrackFromSong(song resSongInfoData, album resAlbum, config co
 	songDir := path.Dir(songPath)
 
 	// Ensure directory exists
-	err = ensureSongDirectoryExists(songPath, album.CoverXl)
+	err = ensureSongDirectoryExists(songPath, coverURL(album, song))
 	if err != nil {
 		return err
 	}
@@ -255,14 +255,8 @@ func downloadSingleTrackFromPlaylist(track resTrack, config configuration) error
 	songPath := getSongPath(song, album, config, selectedFormat)
 	songDir := path.Dir(songPath)
 
-	// Use album cover URL, fall back to song-level picture
-	coverUrl := album.CoverXl
-	if coverUrl == "" {
-		coverUrl = song.AlbPicture
-	}
-
 	// Ensure directory exists
-	err = ensureSongDirectoryExists(songPath, coverUrl)
+	err = ensureSongDirectoryExists(songPath, coverURL(album, song))
 	if err != nil {
 		return err
 	}
