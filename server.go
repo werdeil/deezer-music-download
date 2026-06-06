@@ -100,6 +100,12 @@ func handleDownloadAlbum(w http.ResponseWriter, r *http.Request, config configur
 		return
 	}
 
+	// Ensure album.NbDiscs is set: the public API does not expose nb_discs,
+	// so compute it from the scraped song list (matches the CLI album path).
+	if album.NbDiscs == 0 {
+		album.NbDiscs = computeNbDiscs(albumSongs.Songs.Data)
+	}
+
 	// Download all tracks
 	total := len(albumSongs.Songs.Data)
 	log.Printf("Downloading album: %s (%d tracks)", album.Title, total)

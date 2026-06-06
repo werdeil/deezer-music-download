@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 )
 
@@ -25,19 +24,7 @@ album_loop:
 
 		// Ensure album.NbDiscs is set: compute from albumInfo if API didn't provide it
 		if album.NbDiscs == 0 {
-			maxDisc := 0
-			for _, s := range albumInfo.Songs.Data {
-				if s.DiskNumber != "" {
-					if d, err := strconv.Atoi(s.DiskNumber); err == nil {
-						if d > maxDisc {
-							maxDisc = d
-						}
-					}
-				}
-			}
-			if maxDisc > 0 {
-				album.NbDiscs = maxDisc
-			}
+			album.NbDiscs = computeNbDiscs(albumInfo.Songs.Data)
 		}
 
 		for _, song := range albumInfo.Songs.Data {

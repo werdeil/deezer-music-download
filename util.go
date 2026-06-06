@@ -8,6 +8,21 @@ import (
 	"strings"
 )
 
+// computeNbDiscs returns the highest DISK_NUMBER found among the album's songs.
+// The public Deezer REST API does not expose nb_discs, so this is used as a
+// fallback to populate the disc-total tag (DISCTOTAL / "Part of a set").
+func computeNbDiscs(songs []resSongInfoData) int {
+	maxDisc := 0
+	for _, s := range songs {
+		if s.DiskNumber != "" {
+			if d, err := strconv.Atoi(s.DiskNumber); err == nil && d > maxDisc {
+				maxDisc = d
+			}
+		}
+	}
+	return maxDisc
+}
+
 func getTitle(song resSongInfoData) string {
 	if song.Version != "" {
 		return strings.Join([]string{song.SngTitle, song.Version}, " ")
