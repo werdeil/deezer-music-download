@@ -173,6 +173,11 @@ type resSongInfoData struct {
 	UpdateDate           string                          `json:"UPDATE_DATE"`
 	Type0                string                          `json:"__TYPE__"`
 	DigitalReleaseDate   string                          `json:"DIGITAL_RELEASE_DATE"`
+	// Fallback is set when this recording carries no streaming rights of its
+	// own; it points at an equivalent recording that does. The web player
+	// follows it transparently, so a track can be audible on deezer.com while
+	// its own TRACK_TOKEN is rejected by get_url.
+	Fallback *resSongInfoData `json:"FALLBACK"`
 }
 
 type resSongInfoIsrcData struct {

@@ -14,7 +14,19 @@ import (
 // cannot be fetched. Shared by the CLI and server, album and playlist paths so
 // their behaviour cannot drift.
 func downloadTrack(song resSongInfoData, album resAlbum, config configuration) error {
+	// streamId identifies the recording actually being streamed. It normally
+	// matches song, but diverges when we fall back, and the Blowfish key is
+	// derived from it, so it must follow the stream rather than the metadata.
+	streamId := song.SngId
 	selectedFormat, songUrl, err := resolveSongUrl(song.TrackToken, config)
+	if err != nil && song.Fallback != nil && song.Fallback.TrackToken != "" {
+		fbFormat, fbUrl, fbErr := resolveSongUrl(song.Fallback.TrackToken, config)
+		if fbErr == nil {
+			log.Printf("\"%s\" has no streaming rights, using fallback recording %s",
+				song.SngTitle, song.Fallback.SngId)
+			selectedFormat, songUrl, streamId, err = fbFormat, fbUrl, song.Fallback.SngId, nil
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("no playable format for \"%s\" by %s from \"%s\": %w",
 			song.SngTitle, song.ArtName, song.AlbTitle, err)
@@ -27,7 +39,7 @@ func downloadTrack(song resSongInfoData, album resAlbum, config configuration) e
 		return fmt.Errorf("preparing directory for \"%s\": %w", song.SngTitle, err)
 	}
 
-	bytesWritten, err := downloadSong(songUrl, songPath, song.SngId, 0, config)
+	bytesWritten, err := downloadSong(songUrl, songPath, streamId, 0, config)
 	if err != nil {
 		return fmt.Errorf("downloading \"%s\": %w", song.SngTitle, err)
 	}
@@ -88,18 +100,29 @@ album_loop:
 			album.NbDiscs = computeNbDiscs(albumInfo.Songs.Data)
 		}
 
+		failed := 0
 		for _, song := range albumInfo.Songs.Data {
 			if err := downloadTrack(song, album, config); err != nil {
-				msg := fmt.Sprintf("%v\n", err)
+				failed++
+				msg := fmt.Sprintf("skipping track: %v\n", err)
 				log.Print(msg)
 				logFile.Write([]byte(msg))
-				log.Print("Album download failed: " + albumId + "\n\n")
-				logFile.Write([]byte("Album download failed: " + albumId + "\n"))
-				continue album_loop
 			}
 		}
-		log.Print("Album download succeeded: " + albumId + "\n\n")
-		logFile.Write([]byte("Album download succeeded: " + albumId + "\n"))
+		total := len(albumInfo.Songs.Data)
+		if failed == total {
+			log.Print("Album download failed: " + albumId + "\n\n")
+			logFile.Write([]byte("Album download failed: " + albumId + "\n"))
+			continue album_loop
+		}
+		var result string
+		if failed > 0 {
+			result = fmt.Sprintf("Album download completed with %d/%d tracks unavailable: %s\n", failed, total, albumId)
+		} else {
+			result = "Album download succeeded: " + albumId + "\n"
+		}
+		log.Print(result + "\n")
+		logFile.Write([]byte(result))
 	}
 }
 
@@ -122,17 +145,28 @@ playlist_loop:
 			}
 		}
 
+		failed := 0
 		for _, track := range tracks.Data {
 			if err := downloadPlaylistTrack(track, config); err != nil {
-				msg := fmt.Sprintf("%v\n", err)
+				failed++
+				msg := fmt.Sprintf("skipping track: %v\n", err)
 				log.Print(msg)
 				logFile.Write([]byte(msg))
-				log.Print("Playlist download failed: " + playlistId + "\n\n")
-				logFile.Write([]byte("Playlist download failed: " + playlistId + "\n"))
-				continue playlist_loop
 			}
 		}
-		log.Print("Playlist download succeeded: " + playlistId + "\n\n")
-		logFile.Write([]byte("Playlist download succeeded: " + playlistId + "\n"))
+		total := len(tracks.Data)
+		if total > 0 && failed == total {
+			log.Print("Playlist download failed: " + playlistId + "\n\n")
+			logFile.Write([]byte("Playlist download failed: " + playlistId + "\n"))
+			continue playlist_loop
+		}
+		var result string
+		if failed > 0 {
+			result = fmt.Sprintf("Playlist download completed with %d/%d tracks unavailable: %s\n", failed, total, playlistId)
+		} else {
+			result = "Playlist download succeeded: " + playlistId + "\n"
+		}
+		log.Print(result + "\n")
+		logFile.Write([]byte(result))
 	}
 }
