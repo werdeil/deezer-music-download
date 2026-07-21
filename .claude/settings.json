@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/Vincent/go/pkg/mod/github.com/bogem/id3v2@v1.2.0/**)",
+      "Bash(go vet *)"
+    ]
+  }
+}

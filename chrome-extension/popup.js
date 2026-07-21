@@ -173,19 +173,60 @@ async function startDownload() {
                 },
                 body: JSON.stringify(body)
             });
-            
+
             if (!response.ok) {
-                throw new Error(msg('errorServer', response.status.toString()));
+                // Pre-download error: server sent a single JSON error object
+                let errMsg = msg('errorServer', response.status.toString());
+                try {
+                    const errData = await response.json();
+                    if (errData.error) errMsg = msg('errorDownload', errData.error);
+                } catch (e) { /* keep default */ }
+                showStatus(errMsg, 'error');
+                return;
             }
-            
-            const data = await response.json();
-            
-            if (data.success) {
+
+            // Read the streamed NDJSON progress events line by line
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finalEvent = null;
+
+            const handleLine = (line) => {
+                line = line.trim();
+                if (!line) return;
+                let ev;
+                try {
+                    ev = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                if (ev.type === 'progress' && ev.total > 0) {
+                    const pct = Math.round((ev.current / ev.total) * 100);
+                    progressBar.style.width = pct + '%';
+                    progressBar.textContent = pct + '%';
+                } else if (ev.type === 'done' || ev.type === 'error') {
+                    finalEvent = ev;
+                }
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                let idx;
+                while ((idx = buffer.indexOf('\n')) >= 0) {
+                    handleLine(buffer.slice(0, idx));
+                    buffer = buffer.slice(idx + 1);
+                }
+            }
+            if (buffer) handleLine(buffer);
+
+            if (finalEvent && finalEvent.success) {
                 progressBar.style.width = '100%';
                 progressBar.textContent = '100%';
-                showStatus('✅ ' + msg('downloadComplete', data.message || ''), 'success');
+                showStatus('✅ ' + msg('downloadComplete', finalEvent.message || ''), 'success');
             } else {
-                showStatus(msg('errorDownload', data.error || msg('errorUnknown')), 'error');
+                showStatus(msg('errorDownload', (finalEvent && finalEvent.error) || msg('errorUnknown')), 'error');
             }
         } catch (error) {
             showStatus(msg('errorConnection', error.message), 'error');

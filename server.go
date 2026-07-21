@@ -19,6 +19,25 @@ type DownloadResponse struct {
 	Error   string `json:"error"`
 }
 
+// ProgressEvent is a single NDJSON line streamed to the extension during a
+// download so the progress bar can advance track by track.
+type ProgressEvent struct {
+	Type    string `json:"type"`              // "progress" | "done" | "error"
+	Current int    `json:"current,omitempty"` // tracks processed so far
+	Total   int    `json:"total,omitempty"`   // total tracks
+	Title   string `json:"title,omitempty"`   // current track title
+	Success bool   `json:"success,omitempty"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// writeEvent encodes one ProgressEvent as an NDJSON line and flushes it so the
+// client receives it immediately.
+func writeEvent(w http.ResponseWriter, flusher http.Flusher, ev ProgressEvent) {
+	json.NewEncoder(w).Encode(ev)
+	flusher.Flush()
+}
+
 // StartServer starts the HTTP API server for Chrome extension
 func StartServer(port string, config configuration) {
 	// Set up CORS middleware
@@ -103,7 +122,13 @@ func handleDownloadAlbum(w http.ResponseWriter, r *http.Request, config configur
 		album.NbDiscs = computeNbDiscs(albumSongs.Songs.Data)
 	}
 
-	// Download all tracks
+	// Download all tracks, streaming progress to the client
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		respondWithError(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
 	total := len(albumSongs.Songs.Data)
 	log.Printf("Downloading album: %s (%d tracks)", album.Title, total)
 	downloadCount := 0
@@ -111,14 +136,15 @@ func handleDownloadAlbum(w http.ResponseWriter, r *http.Request, config configur
 		log.Printf("[%02d/%02d] %s - %s", i+1, total, album.Title, song.SngTitle)
 		if err := downloadTrack(song, album, tempConfig); err != nil {
 			log.Printf("Failed: %v", err)
-			continue
+		} else {
+			downloadCount++
 		}
-		downloadCount++
+		writeEvent(w, flusher, ProgressEvent{Type: "progress", Current: i + 1, Total: total, Title: song.SngTitle})
 	}
 
 	message := fmt.Sprintf("Downloaded %d/%d tracks from album: %s", downloadCount, total, album.Title)
 	log.Print(message)
-	respondWithSuccess(w, message)
+	writeEvent(w, flusher, ProgressEvent{Type: "done", Success: true, Message: message})
 }
 
 func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config configuration) {
@@ -161,7 +187,13 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 		return
 	}
 
-	// Download all tracks
+	// Download all tracks, streaming progress to the client
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		respondWithError(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
 	total := len(playlistSongs.Data)
 	log.Printf("Downloading playlist: %s (%d tracks)", playlist.Title, total)
 	downloadCount := 0
@@ -169,14 +201,15 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 		log.Printf("[%02d/%02d] %s", i+1, total, track.Title)
 		if err := downloadPlaylistTrack(track, tempConfig); err != nil {
 			log.Printf("Failed: %v", err)
-			continue
+		} else {
+			downloadCount++
 		}
-		downloadCount++
+		writeEvent(w, flusher, ProgressEvent{Type: "progress", Current: i + 1, Total: total, Title: track.Title})
 	}
 
 	message := fmt.Sprintf("Downloaded %d/%d tracks from playlist: %s", downloadCount, total, playlist.Title)
 	log.Print(message)
-	respondWithSuccess(w, message)
+	writeEvent(w, flusher, ProgressEvent{Type: "done", Success: true, Message: message})
 }
 
 func respondWithSuccess(w http.ResponseWriter, message string) {
