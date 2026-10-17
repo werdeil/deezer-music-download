@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -17,11 +19,14 @@ func getConfig() (configuration, error) {
 		if err != nil {
 			panic(err)
 		}
-		configDir = homedir + "/.config/"
+		configDir = filepath.Join(homedir, ".config")
 	}
-	configPath := configDir + "/deezer-music-download/config.toml"
+	configPath := filepath.Join(configDir, "deezer-music-download", "config.toml")
 
 	_, err = toml.DecodeFile(configPath, &config)
+	if errors.Is(err, os.ErrNotExist) {
+		return configuration{}, fmt.Errorf("config file not found at %s (copy example_config.toml there and fill in the values)", configPath)
+	}
 	if err != nil {
 		return configuration{}, err
 	}
