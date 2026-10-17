@@ -83,6 +83,12 @@ func main() {
 		printUsage()
 		return
 	}
+	for _, arg := range os.Args[1:] {
+		if arg == "--help" || arg == "-h" || arg == "help" {
+			printUsage()
+			return
+		}
+	}
 
 	command := os.Args[1]
 
