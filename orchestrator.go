@@ -33,7 +33,7 @@ func downloadTrack(song resSongInfoData, album resAlbum, config configuration) e
 	}
 
 	songPath := getSongPath(song, album, config, selectedFormat)
-	coverFilePath := path.Dir(songPath) + "/cover.jpg"
+	coverFilePath := path.Dir(songPath) + "/folder.jpg"
 
 	if err = ensureSongDirectoryExists(songPath, coverURL(album, song)); err != nil {
 		return fmt.Errorf("preparing directory for \"%s\": %w", song.SngTitle, err)
