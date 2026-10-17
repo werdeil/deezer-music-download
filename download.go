@@ -58,7 +58,7 @@ func ensureSongDirectoryExists(songPath string, coverUrl string) error {
 		if len(coverUrl) == 0 {
 			log.Println("Skipping cover")
 		} else {
-			coverFilePath := songDir + "/cover.jpg"
+			coverFilePath := songDir + "/folder.jpg"
 			f, err := os.Create(coverFilePath)
 			if err != nil {
 				return err
