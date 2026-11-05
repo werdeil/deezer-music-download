@@ -445,49 +445,70 @@ func getPlaylistSongs(playlistId string, config configuration) (resTracks, error
 	return resTracks{Data: tracks, Total: len(tracks)}, nil
 }
 
-// resolveSongUrl tries each format in order of preference and returns the first
-// one that yields a usable stream URL. If every format fails, it returns an
-// aggregated error listing what went wrong for each format, so the caller can
-// see that all formats were attempted rather than just the last one.
+// preferredFormats lists the formats requested from Deezer, best first.
+// MP3_256 is intentionally omitted: it is not a tier Deezer serves, so it
+// always returns error 1002 (token has no rights) regardless of the track.
+// FLAC covers every lossless resolution: Deezer serves 16-bit/44.1kHz or, when
+// the track has a hi-res master, up to 24-bit/192kHz under the same format.
+var preferredFormats = []string{"FLAC", "MP3_320", "MP3_128"}
+
+// resolveSongUrl asks Deezer for all preferred formats in a single request, as
+// the official web player does, and returns the best one it serves along with
+// its stream URL.
 func resolveSongUrl(trackToken string, config configuration) (selectedFormat string, songUrl string, err error) {
-	// MP3_256 is intentionally omitted: it is not a tier Deezer serves, so it
-	// always returns error 1002 (token has no rights) regardless of the track.
-	formats := []string{"FLAC", "MP3_320", "MP3_128"}
-	// Group attempted formats by the error they returned so identical errors
-	// (e.g. "no media available" for several formats) are reported only once.
-	errToFormats := map[string][]string{}
-	var errOrder []string
-	recordErr := func(f string, e error) {
-		msg := e.Error()
-		if _, seen := errToFormats[msg]; !seen {
-			errOrder = append(errOrder, msg)
-		}
-		errToFormats[msg] = append(errToFormats[msg], f)
+	songUrlData, err := getSongUrlData(trackToken, preferredFormats, config)
+	if err != nil {
+		return "", "", fmt.Errorf("no playable format among %s (%w)", strings.Join(preferredFormats, "/"), err)
 	}
-	for _, f := range formats {
-		songUrlData, errTry := getSongUrlData(trackToken, f, config)
-		if errTry != nil {
-			recordErr(f, errTry)
-			continue
-		}
-		url, errTry := getSongUrl(songUrlData, f)
-		if errTry != nil {
-			recordErr(f, errTry)
-			continue
-		}
-		return f, url, nil
+	media := pickBestMedia(songUrlData.Data[0].Media)
+	url, err := getSongUrl(media)
+	if err != nil {
+		return "", "", err
 	}
-	var parts []string
-	for _, msg := range errOrder {
-		parts = append(parts, fmt.Sprintf("%s: %s", strings.Join(errToFormats[msg], "/"), msg))
-	}
-	return "", "", fmt.Errorf("no playable format (%s)", strings.Join(parts, "; "))
+	return media.Format, url, nil
 }
 
-func getSongUrlData(trackToken string, format string, config configuration) (resSongUrl, error) {
+// pickBestMedia returns the media entry whose format ranks highest in
+// preferredFormats. Deezer normally returns only the best one it can serve,
+// but don't rely on ordering if it returns several.
+func pickBestMedia(medias []songMedia) songMedia {
+	rank := func(f string) int {
+		for i, p := range preferredFormats {
+			if strings.EqualFold(f, p) {
+				return i
+			}
+		}
+		return len(preferredFormats)
+	}
+	best := medias[0]
+	for _, m := range medias[1:] {
+		if rank(m.Format) < rank(best.Format) {
+			best = m
+		}
+	}
+	return best
+}
+
+func getSongUrlData(trackToken string, formats []string, config configuration) (resSongUrl, error) {
 	url := "https://media.deezer.com/v1/get_url"
-	bodyJsonStr := fmt.Sprintf(`{"license_token":"%s","media":[{"type":"FULL","formats":[{"cipher":"BF_CBC_STRIPE","format":"%s"}]}],"track_tokens":["%s"]}`, config.LicenseToken, format, trackToken)
-	res, err := makeReq("POST", url, bytes.NewBuffer([]byte(bodyJsonStr)), config)
+	type reqFormat struct {
+		Cipher string `json:"cipher"`
+		Format string `json:"format"`
+	}
+	reqFormats := make([]reqFormat, 0, len(formats))
+	for _, f := range formats {
+		reqFormats = append(reqFormats, reqFormat{Cipher: "BF_CBC_STRIPE", Format: f})
+	}
+	body := map[string]any{
+		"license_token": config.LicenseToken,
+		"media":         []map[string]any{{"type": "FULL", "formats": reqFormats}},
+		"track_tokens":  []string{trackToken},
+	}
+	bodyJson, err := json.Marshal(body)
+	if err != nil {
+		return resSongUrl{}, err
+	}
+	res, err := makeReq("POST", url, bytes.NewBuffer(bodyJson), config)
 	if err != nil {
 		return resSongUrl{}, err
 	}
@@ -548,11 +569,12 @@ func getPing(config configuration) (resPing, error) {
 	return ping, err
 }
 
-func getSongUrl(songUrlData resSongUrl, format string) (string, error) {
-	if len(songUrlData.Data) == 0 || len(songUrlData.Data[0].Media) == 0 {
-		return "", errors.New("no media available in songUrlData")
+func getSongUrl(media songMedia) (string, error) {
+	format := media.Format
+	sources := media.Sources
+	if len(sources) == 0 {
+		return "", errors.New("no stream source in media")
 	}
-	sources := songUrlData.Data[0].Media[0].Sources
 	var url string
 	for _, source := range sources {
 		if source.Provider == "ak" {

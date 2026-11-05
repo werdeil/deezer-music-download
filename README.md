@@ -5,6 +5,8 @@ Verified to produce the same audio as other downloaders being used for files pre
  
 Note: The tool will now automatically fall back to downloading MP3 files when the FLAC format is not available for a given track. In that case the downloader will try `FLAC` first, then `MP3_320`, and finally `MP3_128`. 
 
+All three formats are requested from Deezer in a single request (as the official web player does), and the best one served is downloaded. Deezer delivers every lossless resolution under the `FLAC` format: 16-bit/44.1kHz, or up to 24-bit/192kHz when the track has a hi-res master. The log shows the format actually obtained and, for FLAC, its real resolution read from the file, e.g. `Downloaded "Title" as FLAC 24-bit/96kHz`.
+
 The program downloads cover art and metadata tags: for MP3s it writes ID3v2 tags and embeds the cover image into the MP3 file, and for FLACs it embeds the cover art and metadata.
 
 ## Setup

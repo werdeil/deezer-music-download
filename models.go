@@ -230,20 +230,24 @@ type resSongUrl struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
 		} `json:"errors"`
-		Media []struct {
-			Cipher struct {
-				Type string `json:"type"`
-			} `json:"cipher"`
-			Exp       int    `json:"exp"`
-			Format    string `json:"format"`
-			MediaType string `json:"media_type"`
-			Nbf       int    `json:"nbf"`
-			Sources   []struct {
-				Provider string `json:"provider"`
-				Url      string `json:"url"`
-			} `json:"sources"`
-		} `json:"media"`
+		Media []songMedia `json:"media"`
 	} `json:"data"`
+}
+
+// songMedia is one stream offered by media.deezer.com/v1/get_url.
+type songMedia struct {
+	Cipher struct {
+		Type string `json:"type"`
+	} `json:"cipher"`
+	Exp       int    `json:"exp"`
+	Format    string `json:"format"`
+	MediaType string `json:"media_type"`
+	Nbf       int    `json:"nbf"`
+	Filesize  int64  `json:"filesize"`
+	Sources   []struct {
+		Provider string `json:"provider"`
+		Url      string `json:"url"`
+	} `json:"sources"`
 }
 
 type resAlbumInfo struct {

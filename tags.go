@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -192,4 +195,45 @@ func addTags(song resSongInfoData, path string, album resAlbum) error {
 	f.Save(path)
 
 	return nil
+}
+
+// flacStreamInfo is the audio resolution read from a FLAC file's STREAMINFO block.
+type flacStreamInfo struct {
+	BitsPerSample int
+	SampleRate    int
+	Channels      int
+}
+
+func (si flacStreamInfo) String() string {
+	rate := strconv.FormatFloat(float64(si.SampleRate)/1000, 'f', -1, 64)
+	return fmt.Sprintf("%d-bit/%skHz", si.BitsPerSample, rate)
+}
+
+// readFlacStreamInfo reads the STREAMINFO block, which the FLAC spec requires to
+// be the first metadata block, without parsing the rest of the file.
+func readFlacStreamInfo(path string) (flacStreamInfo, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return flacStreamInfo{}, err
+	}
+	defer f.Close()
+
+	// "fLaC" marker (4) + metadata block header (4) + STREAMINFO body (34).
+	var buf [42]byte
+	if _, err := io.ReadFull(f, buf[:]); err != nil {
+		return flacStreamInfo{}, err
+	}
+	if string(buf[:4]) != "fLaC" {
+		return flacStreamInfo{}, errors.New("not a FLAC stream")
+	}
+	if buf[4]&0x7f != 0 {
+		return flacStreamInfo{}, errors.New("first metadata block is not STREAMINFO")
+	}
+	d := buf[8:]
+	// Bytes 10-13 pack: sample rate (20 bits), channels-1 (3), bits per sample-1 (5).
+	return flacStreamInfo{
+		SampleRate:    int(d[10])<<12 | int(d[11])<<4 | int(d[12])>>4,
+		Channels:      int(d[12]>>1&0x07) + 1,
+		BitsPerSample: (int(d[12]&0x01)<<4 | int(d[13])>>4) + 1,
+	}, nil
 }
