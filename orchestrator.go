@@ -45,7 +45,13 @@ func downloadTrack(song resSongInfoData, album resAlbum, config configuration) e
 	}
 	log.Printf("Wrote %d bytes: %s", bytesWritten, songPath)
 
+	quality := selectedFormat
 	if strings.ToUpper(selectedFormat) == "FLAC" {
+		if si, err := readFlacStreamInfo(songPath); err == nil {
+			quality = fmt.Sprintf("%s %s", selectedFormat, si)
+		} else {
+			log.Printf("Warning: could not read audio resolution of \"%s\": %v", song.SngTitle, err)
+		}
 		if err = addTags(song, songPath, album); err != nil {
 			log.Printf("Warning: failed to add tags to \"%s\": %v", song.SngTitle, err)
 		}
@@ -58,7 +64,7 @@ func downloadTrack(song resSongInfoData, album resAlbum, config configuration) e
 		log.Printf("Warning: failed to add ID3 tags to \"%s\": %v", song.SngTitle, err)
 	}
 
-	log.Printf("Downloaded \"%s\" as %s", song.SngTitle, selectedFormat)
+	log.Printf("Downloaded \"%s\" as %s", song.SngTitle, quality)
 	return nil
 }
 

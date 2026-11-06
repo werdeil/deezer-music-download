@@ -39,7 +39,7 @@ All Go files are in `package main` with no subdirectories. The data flow is:
 5. **`download.go`** — stream download with Blowfish-CBC decryption. Every third 2048-byte block is encrypted; the key is derived per-track from `MD5(songId) XOR preKey`.
 6. **`tags.go`** — writes metadata: Vorbis comments + embedded cover for FLAC (`go-flac`), ID3v2 tags + embedded cover for MP3 (`bogem/id3v2`).
 7. **`util.go`** — helpers: `getSongPath` (builds `destDir/Artist/Artist - Album/NN - Title.ext`), `SanitizePath`, `getTitle`/`getArtist`/`getComposer`/`getAlbumGenres`.
-8. **`orchestrator.go`** — `processAlbums` and `processPlaylists`: iterate tracks, resolve a stream URL via `resolveSongUrl` (api.go), which tries formats `FLAC → MP3_320 → MP3_128`, then download + tag.
+8. **`orchestrator.go`** — `processAlbums` and `processPlaylists`: iterate tracks, resolve a stream URL via `resolveSongUrl` (api.go), which requests `FLAC`, `MP3_320` and `MP3_128` in a single `get_url` call and keeps the best format served, then download + tag. For FLAC, the real resolution (16/24-bit, sample rate) is read from the STREAMINFO block (`readFlacStreamInfo` in tags.go) and logged.
 9. **`server.go`** — HTTP server for the Chrome extension. Endpoints: `GET /health`, `POST /download-album`, `POST /download-playlist`. Accepts `{"id": "...", "license_token": "..."}`.
 
 ### Chrome extension (`chrome-extension/`)
