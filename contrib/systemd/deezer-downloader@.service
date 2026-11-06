@@ -1,0 +1,27 @@
+# systemd user service for the deezer-music-download API server.
+# The instance name is the port: deezer-downloader@5555 listens on port 5555.
+#
+# Install:
+#   go build -o ~/.local/bin/deezer-downloader .
+#   mkdir -p ~/.config/systemd/user
+#   cp contrib/systemd/deezer-downloader@.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#
+# Use:
+#   systemctl --user start|stop|restart|status deezer-downloader@5555
+#   systemctl --user enable deezer-downloader@5555   # start at login
+#   journalctl --user -u deezer-downloader@5555 -f   # follow logs
+
+[Unit]
+Description=Deezer music download API server (port %i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/deezer-downloader --server %i
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
