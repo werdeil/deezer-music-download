@@ -38,29 +38,34 @@ func writeEvent(w http.ResponseWriter, flusher http.Flusher, ev ProgressEvent) {
 	flusher.Flush()
 }
 
+// corsMiddleware adds the CORS headers the Chrome extension needs and answers
+// preflight OPTIONS requests directly.
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
+		log.Printf("health: %v", err)
+	}
+}
+
 // StartServer starts the HTTP API server for Chrome extension
 func StartServer(port string, config configuration) {
-	// Set up CORS middleware
-	corsMiddleware := func(next http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			next(w, r)
-		}
-	}
-
 	// Health check endpoint
-	http.HandleFunc("/health", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-	}))
+	http.HandleFunc("/health", corsMiddleware(handleHealth))
 
 	// Download album endpoint
 	http.HandleFunc("/download-album", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {

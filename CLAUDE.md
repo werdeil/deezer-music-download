@@ -18,9 +18,25 @@ go build -o deezer-downloader .
 
 # Dependencies
 go mod tidy
+
+# Tests (offline, no Deezer account needed)
+go test -race ./...
+
+# Lint (config in .golangci.yml)
+golangci-lint run ./...
+
+# Chrome extension checks
+node .github/scripts/check-extension.mjs chrome-extension
+(cd chrome-extension && npx eslint@10 --config ../.github/scripts/eslint.config.mjs .)
 ```
 
-There are no tests in this project.
+Tests cover the pure helpers (paths, tags, FLAC STREAMINFO, Blowfish key/decryption with dummy keys, format selection) and the server's request validation. They never call Deezer.
+
+## CI/CD (`.github/`)
+
+- `workflows/ci.yml` — gofmt, `go vet`, `go mod tidy` diff, `go test -race`, golangci-lint (`only-new-issues`: the existing code still has known findings), cross-builds (linux/darwin/windows × amd64/arm64), and the extension job (manifest/locale checks, ESLint, zip artifact).
+- `workflows/security.yml` — govulncheck (also weekly) and gitleaks secret scan.
+- `dependabot.yml` — weekly updates for Go modules and GitHub Actions.
 
 ## Configuration
 

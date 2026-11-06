@@ -1,6 +1,6 @@
 module github.com/werdeil/deezer-music-download
 
-go 1.19
+go 1.24
 
 require (
 	github.com/BurntSushi/toml v1.2.1
