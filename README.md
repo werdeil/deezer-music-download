@@ -56,6 +56,30 @@ go build -o deezer-downloader .
 
 The `license_token` in `config.toml` can be left empty — the extension will capture it automatically and send it with each request. If a token is present in `config.toml`, it will be used as a fallback.
 
+### Running the server as a service (Linux, systemd)
+
+A systemd user unit is provided in `contrib/systemd/`. The instance name is the port to listen on.
+
+```bash
+go build -o ~/.local/bin/deezer-downloader .
+mkdir -p ~/.config/systemd/user
+cp contrib/systemd/deezer-downloader@.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+```
+
+Then manage it with:
+
+```bash
+systemctl --user start deezer-downloader@5555
+systemctl --user stop deezer-downloader@5555
+systemctl --user restart deezer-downloader@5555
+systemctl --user status deezer-downloader@5555
+systemctl --user enable deezer-downloader@5555    # start automatically at login
+journalctl --user -u deezer-downloader@5555 -f    # follow the logs
+```
+
+After rebuilding the binary, run `systemctl --user restart deezer-downloader@5555` to pick up the new version. To keep the service running when you are logged out, run `loginctl enable-linger $USER` once.
+
 ### Installing the extension
 
 1. Go to `chrome://extensions/`
