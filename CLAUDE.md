@@ -39,7 +39,8 @@ Lint conventions: close read-only resources (response bodies, files opened for r
 - `workflows/ci.yml` — gofmt, `go vet`, `go mod tidy` diff, `go test -race`, golangci-lint (the whole codebase must be clean), cross-builds (linux/darwin/windows × amd64/arm64), and the extension job (manifest/locale checks, ESLint, zip artifact).
 - `workflows/security.yml` — govulncheck (also weekly) and gitleaks secret scan.
 - `dependabot.yml` — weekly updates for Go modules and GitHub Actions.
-- `workflows/pull-request.yml` + `labeler.yml` — labels each PR by area from the changed files (`api`, `download`, `tags`, `server`, `cli`, `extension`, `i18n`, `tests`, `dependencies`, `docs`, `ci`) and by type from a Conventional Commits title (`feat`, `fix`, `refactor`, `docs`, `chore`). Runs on `pull_request_target`, so it uses the workflow and config from `main` and never runs the PR's code.
+- `workflows/pull-request.yml` + `labeler.yml` — labels each PR by area from the changed files (`api`, `download`, `tags`, `server`, `cli`, `extension`, `i18n`, `tests`, `dependencies`, `docs`, `ci`) and by type from a Conventional Commits title (`feat`, `fix`, `refactor`, `docs`, `chore`). It also requires PR titles to follow Conventional Commits: `type(scope): summary`, type among `feat`, `fix`, `refactor`, `docs`, `chore`, lowercase after the colon, no trailing period. Runs on `pull_request_target`, so it uses the workflow and config from `main` and never runs the PR's code.
+- `release.yml` — groups the generated release notes by label: Features (`feat`), Fixes (`fix`), Dependencies, Other changes.
 
 ## Configuration
 
