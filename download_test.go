@@ -9,9 +9,10 @@ import (
 	"golang.org/x/crypto/blowfish" //nolint:staticcheck // Deezer streams use Blowfish; the tests must too.
 )
 
-// Dummy values: the real pre_key/iv are never needed by the tests.
+// Dummy, deliberately non-random values: the real pre_key/iv are never needed
+// by the tests (and random-looking strings trip the secret scanner).
 var testConfig = configuration{
-	PreKey: "0123456789abcdef",
+	PreKey: "AAAAAAAAAAAAAAAA",
 	Iv:     "0001020304050607",
 }
 
@@ -27,7 +28,7 @@ func TestCalcBfKey(t *testing.T) {
 		t.Error("different song IDs produced the same key")
 	}
 	other := testConfig
-	other.PreKey = "fedcba9876543210"
+	other.PreKey = "BBBBBBBBBBBBBBBB"
 	if bytes.Equal(key, calcBfKey([]byte("123456"), other)) {
 		t.Error("different pre_key produced the same key")
 	}
