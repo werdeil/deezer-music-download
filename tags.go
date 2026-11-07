@@ -50,8 +50,7 @@ func addCover(songPath string, coverPath string) error {
 
 	picturemeta := picture.Marshal()
 	f.Meta = append(f.Meta, &picturemeta)
-	f.Save(songPath)
-	return nil
+	return f.Save(songPath)
 }
 
 // addID3Tags writes ID3v2 tags and embedded cover to an MP3 file.
@@ -63,7 +62,8 @@ func addID3Tags(song resSongInfoData, mp3Path string, coverPath string, album re
 	if err != nil {
 		tag = id3v2.NewEmptyTag()
 	}
-	defer tag.Close()
+	// Save() below flushes the tags; Close only releases the file handle.
+	defer closeQuietly(tag)
 
 	title := getTitle(song)
 	artist := getArtist(song)
@@ -154,37 +154,43 @@ func addTags(song resSongInfoData, path string, album resAlbum) error {
 	artist := getArtist(song)
 	composer := getComposer(song)
 
-	cmts.Add("TITLE", title)
-	cmts.Add("ALBUM", song.AlbTitle)
-	cmts.Add("ARTIST", artist)
-	cmts.Add("ALBUMARTIST", album.Artist.Name)
-	cmts.Add("COMPOSER", composer)
-	cmts.Add("TRACKNUMBER", song.TrackNumber)
+	// Ordered list of Vorbis comments to write.
+	fields := [][2]string{
+		{"TITLE", title},
+		{"ALBUM", song.AlbTitle},
+		{"ARTIST", artist},
+		{"ALBUMARTIST", album.Artist.Name},
+		{"COMPOSER", composer},
+		{"TRACKNUMBER", song.TrackNumber},
+	}
 	if album.NbTracks > 0 {
-		cmts.Add("TRACKTOTAL", strconv.Itoa(album.NbTracks))
+		fields = append(fields, [2]string{"TRACKTOTAL", strconv.Itoa(album.NbTracks)})
 	}
-	cmts.Add("DISCNUMBER", song.DiskNumber)
+	fields = append(fields, [2]string{"DISCNUMBER", song.DiskNumber})
 	if album.NbDiscs > 0 {
-		cmts.Add("DISCTOTAL", strconv.Itoa(album.NbDiscs))
+		fields = append(fields, [2]string{"DISCTOTAL", strconv.Itoa(album.NbDiscs)})
 	}
-	cmts.Add("COPYRIGHT", song.Copyright)
+	fields = append(fields, [2]string{"COPYRIGHT", song.Copyright})
 	// Add genre (from album) to Vorbis comments
-	genre := getAlbumGenres(album)
-	if genre != "" {
-		cmts.Add("GENRE", genre)
+	if genre := getAlbumGenres(album); genre != "" {
+		fields = append(fields, [2]string{"GENRE", genre})
 	}
 	// Prefer album release year, fallback to song physical release date
 	year := extractYear(album.ReleaseDate)
 	if year == "" {
 		year = extractYear(song.PhysicalReleaseDate)
 	}
-	if year != "" {
-		cmts.Add("DATE", year)
-	} else {
+	if year == "" {
 		// keep original value if no year could be extracted
-		cmts.Add("DATE", song.PhysicalReleaseDate)
+		year = song.PhysicalReleaseDate
 	}
-	cmts.Add("ISRC", song.Isrc)
+	fields = append(fields, [2]string{"DATE", year}, [2]string{"ISRC", song.Isrc})
+
+	for _, field := range fields {
+		if err := cmts.Add(field[0], field[1]); err != nil {
+			return fmt.Errorf("adding %s tag: %w", field[0], err)
+		}
+	}
 	cmtsmeta := cmts.Marshal()
 	if found {
 		f.Meta[idx] = &cmtsmeta
@@ -192,9 +198,7 @@ func addTags(song resSongInfoData, path string, album resAlbum) error {
 		f.Meta = append(f.Meta, &cmtsmeta)
 	}
 
-	f.Save(path)
-
-	return nil
+	return f.Save(path)
 }
 
 // flacStreamInfo is the audio resolution read from a FLAC file's STREAMINFO block.
@@ -216,7 +220,7 @@ func readFlacStreamInfo(path string) (flacStreamInfo, error) {
 	if err != nil {
 		return flacStreamInfo{}, err
 	}
-	defer f.Close()
+	defer closeQuietly(f)
 
 	// "fLaC" marker (4) + metadata block header (4) + STREAMINFO body (34).
 	var buf [42]byte

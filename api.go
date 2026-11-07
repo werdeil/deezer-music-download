@@ -11,29 +11,6 @@ import (
 	"strings"
 )
 
-func getFavorites(userId string, config configuration) (resTracks, error) {
-	url := fmt.Sprintf("https://api.deezer.com/user/%s/tracks?limit=10000000000", userId)
-	res, err := makeReq("GET", url, nil, config)
-	if err != nil {
-		return resTracks{}, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		bytes, _ := io.ReadAll(res.Body)
-		bstr := string(bytes)
-		if len(bstr) > 200 {
-			bstr = bstr[:200] + "..."
-		}
-		log.Printf("non-200 response body (truncated): %s", bstr)
-		return resTracks{}, fmt.Errorf("got status code %d", res.StatusCode)
-	}
-
-	var tracks resTracks
-	err = json.NewDecoder(res.Body).Decode(&tracks)
-	return tracks, err
-}
-
 func getSongInfo(id int64, config configuration) (resSongInfo, error) {
 	url := fmt.Sprintf("https://www.deezer.com/de/track/%d", id)
 
@@ -41,7 +18,7 @@ func getSongInfo(id int64, config configuration) (resSongInfo, error) {
 	if err != nil {
 		return resSongInfo{}, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode != 200 {
 		bytes, _ := io.ReadAll(res.Body)
@@ -79,7 +56,7 @@ func getAlbum(albumId string, config configuration) (resAlbum, error) {
 	if err != nil {
 		return resAlbum{}, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode != 200 {
 		bytes, _ := io.ReadAll(res.Body)
@@ -103,7 +80,7 @@ func getAlbumSongs(albumId string, config configuration) (resAlbumInfo, error) {
 	if err != nil {
 		return resAlbumInfo{}, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode != 200 {
 		bytes, _ := io.ReadAll(res.Body)
@@ -131,8 +108,8 @@ func getAlbumSongs(albumId string, config configuration) (resAlbumInfo, error) {
 	sData := s[startIdx+len(startMarker) : startIdx+endIdx]
 
 	var albumInfo resAlbumInfo
-	err = json.NewDecoder(strings.NewReader(sData)).Decode(&albumInfo)
-	// Ignore error, because we're only unmarshaling SONGS
+	// Ignore the error: only SONGS is unmarshaled, the rest of the state may not fit.
+	_ = json.NewDecoder(strings.NewReader(sData)).Decode(&albumInfo)
 	return albumInfo, nil
 }
 
@@ -145,7 +122,7 @@ func getPlaylist(playlistId string, config configuration) (resPlaylist, error) {
 	if err != nil {
 		return resPlaylist{}, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode == 200 {
 		bodyBytes, _ := io.ReadAll(res.Body)
@@ -163,7 +140,7 @@ func getPlaylist(playlistId string, config configuration) (resPlaylist, error) {
 	if err != nil {
 		return resPlaylist{}, err
 	}
-	defer resPage.Body.Close()
+	defer closeQuietly(resPage.Body)
 
 	if resPage.StatusCode == 200 {
 		bodyBytes, _ := io.ReadAll(resPage.Body)
@@ -248,7 +225,7 @@ func getPlaylistSongs(playlistId string, config configuration) (resTracks, error
 	if err != nil {
 		return resTracks{}, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode != 200 {
 		bytes, _ := io.ReadAll(res.Body)
@@ -259,9 +236,9 @@ func getPlaylistSongs(playlistId string, config configuration) (resTracks, error
 		log.Printf("non-200 playlist page body (truncated): %s", bstr)
 
 		if res.StatusCode == 404 {
-			return resTracks{}, fmt.Errorf("Playlist not found - it may be private or deleted")
+			return resTracks{}, errors.New("playlist not found - it may be private or deleted")
 		}
-		return resTracks{}, fmt.Errorf("HTTP %d - Failed to access playlist", res.StatusCode)
+		return resTracks{}, fmt.Errorf("HTTP %d - failed to access playlist", res.StatusCode)
 	}
 
 	bytesBody, _ := io.ReadAll(res.Body)
@@ -512,7 +489,7 @@ func getSongUrlData(trackToken string, formats []string, config configuration) (
 	if err != nil {
 		return resSongUrl{}, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode != 200 {
 		bodyBytes, _ := io.ReadAll(res.Body)
@@ -544,29 +521,6 @@ func getSongUrlData(trackToken string, formats []string, config configuration) (
 		return resSongUrl{}, fmt.Errorf("no media available")
 	}
 	return songUrlData, err
-}
-
-func getPing(config configuration) (resPing, error) {
-	url := "https://www.deezer.com/ajax/gw-light.php?method=deezer.ping&input=3&api_version=1.0&api_token"
-	res, err := makeReq("GET", url, nil, config)
-	if err != nil {
-		return resPing{}, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		bytes, _ := io.ReadAll(res.Body)
-		bstr := string(bytes)
-		if len(bstr) > 200 {
-			bstr = bstr[:200] + "..."
-		}
-		log.Printf("non-200 ping response (truncated): %s", bstr)
-		return resPing{}, fmt.Errorf("got status code %d", res.StatusCode)
-	}
-
-	var ping resPing
-	err = json.NewDecoder(res.Body).Decode(&ping)
-	return ping, err
 }
 
 func getSongUrl(media songMedia) (string, error) {

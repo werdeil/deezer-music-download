@@ -1,0 +1,4 @@
+# False positives: dummy pre_key values in download_test.go (commit 65eab41),
+# since replaced by non-random placeholders.
+65eab41686d9fe9602d71d3b2f6d4bbd14c6a1ea:download_test.go:generic-api-key:14
+65eab41686d9fe9602d71d3b2f6d4bbd14c6a1ea:download_test.go:generic-api-key:30

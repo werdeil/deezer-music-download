@@ -112,13 +112,13 @@ album_loop:
 				failed++
 				msg := fmt.Sprintf("skipping track: %v\n", err)
 				log.Print(msg)
-				logFile.Write([]byte(msg))
+				appendLog(logFile, msg)
 			}
 		}
 		total := len(albumInfo.Songs.Data)
 		if failed == total {
 			log.Print("Album download failed: " + albumId + "\n\n")
-			logFile.Write([]byte("Album download failed: " + albumId + "\n"))
+			appendLog(logFile, "Album download failed: "+albumId+"\n")
 			continue album_loop
 		}
 		var result string
@@ -128,7 +128,7 @@ album_loop:
 			result = "Album download succeeded: " + albumId + "\n"
 		}
 		log.Print(result + "\n")
-		logFile.Write([]byte(result))
+		appendLog(logFile, result)
 	}
 }
 
@@ -157,13 +157,13 @@ playlist_loop:
 				failed++
 				msg := fmt.Sprintf("skipping track: %v\n", err)
 				log.Print(msg)
-				logFile.Write([]byte(msg))
+				appendLog(logFile, msg)
 			}
 		}
 		total := len(tracks.Data)
 		if total > 0 && failed == total {
 			log.Print("Playlist download failed: " + playlistId + "\n\n")
-			logFile.Write([]byte("Playlist download failed: " + playlistId + "\n"))
+			appendLog(logFile, "Playlist download failed: "+playlistId+"\n")
 			continue playlist_loop
 		}
 		var result string
@@ -173,6 +173,6 @@ playlist_loop:
 			result = "Playlist download succeeded: " + playlistId + "\n"
 		}
 		log.Print(result + "\n")
-		logFile.Write([]byte(result))
+		appendLog(logFile, result)
 	}
 }

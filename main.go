@@ -125,7 +125,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("error creating log file %s: %s\n", logFilePath, err)
 	}
-	defer logFile.Close()
+	defer func() {
+		if err := logFile.Close(); err != nil {
+			log.Printf("Warning: could not close log file: %v", err)
+		}
+	}()
 
 	switch command {
 	case "album":
