@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -134,4 +136,17 @@ func getSongPath(song resSongInfoData, album resAlbum, config configuration, for
 	}
 	return fmt.Sprintf("%s/%s/%s - %s/%02d - %s.%s", config.DestDir,
 		cleanArtist, cleanArtist, cleanAlbumTitle, trackNum, cleanSongTitle, ext)
+}
+
+// closeQuietly closes a resource that was only read from (HTTP response body,
+// file opened for reading): a Close error there carries no useful information.
+func closeQuietly(c io.Closer) {
+	_ = c.Close()
+}
+
+// appendLog writes msg to the run's log file, warning on stderr if it fails.
+func appendLog(logFile io.Writer, msg string) {
+	if _, err := io.WriteString(logFile, msg); err != nil {
+		log.Printf("Warning: could not write to log file: %v", err)
+	}
 }

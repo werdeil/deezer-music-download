@@ -372,13 +372,3 @@ type resPlaylist struct {
 	PictureXl string    `json:"picture_xl"`
 	Tracks    resTracks `json:"tracks"`
 }
-
-type resPing struct {
-	Error   []string `json:"error"`
-	Results struct {
-		Session         string `json:"SESSION"`
-		UserId          int    `json:"USER_ID"`
-		Checkform       string `json:"CHECKFORM"`
-		ServerTimestamp int    `json:"SERVER_TIMESTAMP"`
-	} `json:"results"`
-}

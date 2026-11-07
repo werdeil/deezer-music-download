@@ -13,7 +13,7 @@ import (
 	"path"
 	"time"
 
-	"golang.org/x/crypto/blowfish"
+	"golang.org/x/crypto/blowfish" //nolint:staticcheck // Deezer encrypts streams with Blowfish; there is no choice of cipher.
 )
 
 func calcBfKey(songId []byte, config configuration) []byte {
@@ -46,7 +46,9 @@ func ensureSongDirectoryExists(songPath string, coverUrl string) error {
 	var err error
 	songDir := path.Dir(songPath)
 	if _, err = os.Stat(songDir); errors.Is(err, os.ErrNotExist) {
-		os.MkdirAll(songDir, os.ModePerm)
+		if err = os.MkdirAll(songDir, os.ModePerm); err != nil {
+			return err
+		}
 
 		textFilePath := songDir + "/info.txt"
 		textFileData := []byte("Downloaded from Deezer.\n")
@@ -58,47 +60,55 @@ func ensureSongDirectoryExists(songPath string, coverUrl string) error {
 		if len(coverUrl) == 0 {
 			log.Println("Skipping cover")
 		} else {
-			coverFilePath := songDir + "/folder.jpg"
-			f, err := os.Create(coverFilePath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			res, err := http.Get(coverUrl)
-			if err != nil {
-				return err
-			}
-			defer res.Body.Close()
-			if res.StatusCode != 200 {
-				return fmt.Errorf("error downloading cover: status %d", res.StatusCode)
-			}
-			_, err = io.Copy(f, res.Body)
-			if err != nil {
-				return err
-			}
+			return downloadCover(coverUrl, songDir+"/folder.jpg")
 		}
 	}
 	return nil
 }
 
-func downloadSong(url string, songPath string, songId string, attempt int, config configuration) (int64, error) {
-	var err error
+func downloadCover(coverUrl string, coverFilePath string) (err error) {
+	f, err := os.Create(coverFilePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	res, err := http.Get(coverUrl)
+	if err != nil {
+		return err
+	}
+	defer closeQuietly(res.Body)
+	if res.StatusCode != 200 {
+		return fmt.Errorf("error downloading cover: status %d", res.StatusCode)
+	}
+	_, err = io.Copy(f, res.Body)
+	return err
+}
 
+func downloadSong(url string, songPath string, songId string, attempt int, config configuration) (written int64, err error) {
 	if attempt >= 10 {
-		return 0, fmt.Errorf("giving up downloading song after %d attempts\n", attempt)
+		return 0, fmt.Errorf("giving up downloading song after %d attempts", attempt)
 	}
 
 	f, err := os.Create(songPath)
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	// The file is written to: a Close error can mean lost data, so report it.
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	res, err := makeReq("GET", url, nil, config)
 	if err != nil {
 		return 0, err
 	}
-	defer res.Body.Close()
+	defer closeQuietly(res.Body)
 
 	if res.StatusCode != 200 {
 		bytes, _ := io.ReadAll(res.Body)
@@ -148,11 +158,15 @@ outer_loop:
 		if isEncrypted && isWholeBlock {
 			decBuf, err := blowfishDecrypt(buf, bfKey, config)
 			if err != nil {
-				return 0, fmt.Errorf("error decrypting: %s\n", err)
+				return 0, fmt.Errorf("error decrypting: %w", err)
 			}
-			f.Write(decBuf)
+			if _, err := f.Write(decBuf); err != nil {
+				return 0, err
+			}
 		} else {
-			f.Write(buf[:nRead])
+			if _, err := f.Write(buf[:nRead]); err != nil {
+				return 0, err
+			}
 		}
 
 		i += 1

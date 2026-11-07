@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/go-flac/go-flac"
 )
 
-// writeFlacHeader writes a minimal FLAC file: the "fLaC" marker followed by a
-// STREAMINFO block with the given sample rate, channels and bit depth.
+// writeFlacHeader writes a minimal FLAC file: the "fLaC" marker, a STREAMINFO
+// block with the given sample rate, channels and bit depth, then dummy audio.
 func writeFlacHeader(t *testing.T, blockType byte, sampleRate, channels, bits int) string {
 	t.Helper()
 	d := make([]byte, 34)
@@ -17,6 +19,8 @@ func writeFlacHeader(t *testing.T, blockType byte, sampleRate, channels, bits in
 	d[13] = byte((bits - 1) << 4)
 	data := append([]byte("fLaC"), 0x80|blockType, 0, 0, 34)
 	data = append(data, d...)
+	// Some dummy audio frame bytes: go-flac expects data after the metadata.
+	data = append(data, 0xff, 0xf8, 0x69, 0x08, 0x00, 0x00, 0x00, 0x00)
 	path := filepath.Join(t.TempDir(), "test.flac")
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
@@ -72,5 +76,55 @@ func TestReadFlacStreamInfoErrors(t *testing.T) {
 
 	if _, err := readFlacStreamInfo(filepath.Join(dir, "missing.flac")); err == nil {
 		t.Error("expected an error for a missing file")
+	}
+}
+
+func TestAddTagsWritesVorbisComments(t *testing.T) {
+	path := writeFlacHeader(t, 0, 44100, 2, 16)
+	song := resSongInfoData{SngTitle: "Song", Version: "(Live)", AlbTitle: "Album", TrackNumber: "2",
+		DiskNumber: "1", PhysicalReleaseDate: "2020-03-04", Isrc: "FR1234567890",
+		Artists: []resSongInfoArtist{{ArtName: "B"}, {ArtName: "A"}}}
+	var album resAlbum
+	album.Artist.Name = "A"
+	album.NbTracks = 10
+
+	if err := addTags(song, path, album); err != nil {
+		t.Fatalf("addTags: %v", err)
+	}
+
+	f, err := flac.ParseFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmts, _, found, err := extractFlacComment(f)
+	if err != nil || !found {
+		t.Fatalf("no Vorbis comment block (found=%v, err=%v)", found, err)
+	}
+	want := map[string]string{
+		"TITLE": "Song (Live)", "ARTIST": "A, B", "ALBUM": "Album", "TRACKNUMBER": "2",
+		"TRACKTOTAL": "10", "DATE": "2020", "ISRC": "FR1234567890",
+	}
+	for key, value := range want {
+		got, err := cmts.Get(key)
+		if err != nil || len(got) != 1 || got[0] != value {
+			t.Errorf("%s = %v (err %v), want %q", key, got, err, value)
+		}
+	}
+	if si, err := readFlacStreamInfo(path); err != nil || si.SampleRate != 44100 {
+		t.Errorf("STREAMINFO damaged after tagging: %+v, %v", si, err)
+	}
+}
+
+func TestAddTagsReportsSaveError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root ignores file permissions")
+	}
+	path := writeFlacHeader(t, 0, 44100, 2, 16)
+	// Read-only file: parsing works but saving the tags must fail.
+	if err := os.Chmod(path, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	if err := addTags(resSongInfoData{}, path, resAlbum{}); err == nil {
+		t.Error("expected addTags to report the save error")
 	}
 }

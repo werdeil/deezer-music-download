@@ -34,7 +34,10 @@ type ProgressEvent struct {
 // writeEvent encodes one ProgressEvent as an NDJSON line and flushes it so the
 // client receives it immediately.
 func writeEvent(w http.ResponseWriter, flusher http.Flusher, ev ProgressEvent) {
-	json.NewEncoder(w).Encode(ev)
+	if err := json.NewEncoder(w).Encode(ev); err != nil {
+		log.Printf("Warning: could not send progress event: %v", err)
+		return
+	}
 	flusher.Flush()
 }
 
@@ -217,18 +220,12 @@ func handleDownloadPlaylist(w http.ResponseWriter, r *http.Request, config confi
 	writeEvent(w, flusher, ProgressEvent{Type: "done", Success: true, Message: message})
 }
 
-func respondWithSuccess(w http.ResponseWriter, message string) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(DownloadResponse{
-		Success: true,
-		Message: message,
-	})
-}
-
 func respondWithError(w http.ResponseWriter, errorMsg string, statusCode int) {
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(DownloadResponse{
+	if err := json.NewEncoder(w).Encode(DownloadResponse{
 		Success: false,
 		Error:   errorMsg,
-	})
+	}); err != nil {
+		log.Printf("Warning: could not send error response: %v", err)
+	}
 }

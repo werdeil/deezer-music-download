@@ -48,9 +48,6 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.5
-          # The existing code still has known findings: only report issues
-          # introduced by the change being checked.
-          only-new-issues: true
 
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}

@@ -30,11 +30,13 @@ node .github/scripts/check-extension.mjs chrome-extension
 (cd chrome-extension && npx eslint@10 --config ../.github/scripts/eslint.config.mjs .)
 ```
 
-Tests cover the pure helpers (paths, tags, FLAC STREAMINFO, Blowfish key/decryption with dummy keys, format selection) and the server's request validation. They never call Deezer.
+Tests cover the pure helpers (paths, FLAC STREAMINFO and Vorbis tagging, Blowfish key/decryption with dummy keys, format selection) and the server's request validation. They never call Deezer.
+
+Lint conventions: close read-only resources (response bodies, files opened for reading) with `closeQuietly` (util.go); for files being written, propagate the `Close` error. Write to the run log with `appendLog`.
 
 ## CI/CD (`.github/`)
 
-- `workflows/ci.yml` — gofmt, `go vet`, `go mod tidy` diff, `go test -race`, golangci-lint (`only-new-issues`: the existing code still has known findings), cross-builds (linux/darwin/windows × amd64/arm64), and the extension job (manifest/locale checks, ESLint, zip artifact).
+- `workflows/ci.yml` — gofmt, `go vet`, `go mod tidy` diff, `go test -race`, golangci-lint (the whole codebase must be clean), cross-builds (linux/darwin/windows × amd64/arm64), and the extension job (manifest/locale checks, ESLint, zip artifact).
 - `workflows/security.yml` — govulncheck (also weekly) and gitleaks secret scan.
 - `dependabot.yml` — weekly updates for Go modules and GitHub Actions.
 
