@@ -62,6 +62,8 @@ All Go files are in `package main` with no subdirectories. The data flow is:
 8. **`orchestrator.go`** — `processAlbums` and `processPlaylists`: iterate tracks, resolve a stream URL via `resolveSongUrl` (api.go), which requests `FLAC`, `MP3_320` and `MP3_128` in a single `get_url` call and keeps the best format served, then download + tag. For FLAC, the real resolution (16/24-bit, sample rate) is read from the STREAMINFO block (`readFlacStreamInfo` in tags.go) and logged.
 9. **`server.go`** — HTTP server for the Chrome extension. Endpoints: `GET /health`, `POST /download-album`, `POST /download-playlist`. Accepts `{"id": "...", "license_token": "..."}`.
 
+A systemd user unit template lives in `contrib/systemd/deezer-downloader@.service` (instance name = port, binary expected at `~/.local/bin/deezer-downloader`).
+
 ### Chrome extension (`chrome-extension/`)
 
 `manifest.json` → `background.js` intercepts `get_url` network requests to capture the `license_token` automatically → `popup.js`/`popup.html` let the user trigger downloads and configure the server URL. `content.js` extracts the album/playlist ID from the current URL.
