@@ -1,0 +1,43 @@
+api:
+  - changed-files:
+      - any-glob-to-any-file: ["api.go", "models.go"]
+
+download:
+  - changed-files:
+      - any-glob-to-any-file: ["download.go", "orchestrator.go"]
+
+tags:
+  - changed-files:
+      - any-glob-to-any-file: ["tags.go"]
+
+server:
+  - changed-files:
+      - any-glob-to-any-file: ["server.go"]
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: ["main.go", "config.go", "example_config.toml"]
+
+extension:
+  - changed-files:
+      - any-glob-to-any-file: ["chrome-extension/**"]
+
+i18n:
+  - changed-files:
+      - any-glob-to-any-file: ["chrome-extension/_locales/**"]
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*_test.go"]
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: ["go.mod", "go.sum"]
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ["README*.md", "CLAUDE.md", "docs/**"]
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**", ".golangci.yml", ".gitleaksignore"]
